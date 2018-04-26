@@ -2,6 +2,7 @@
 
 module Data.Hounds.MerklePatricia.Orphans where
 
+import qualified Data.ByteString                      as B
 import           Data.Hounds.MerklePatricia
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances.Array      ()
@@ -12,8 +13,10 @@ instance Arbitrary Hash where
   arbitrary = mkHash <$> arbitrary
 
 instance Arbitrary PointerBlock where
-  arbitrary                   = MkPointerBlock <$> arbitrary
-  shrink (MkPointerBlock arr) = MkPointerBlock <$> shrink arr
+  arbitrary = MkPointerBlock <$> resize 256 arbitrary
+
+instance Arbitrary HashSuffix where
+  arbitrary = MkHashSuffix <$> arbitrary `suchThat` (\ bs -> B.length bs <= 32)
 
 instance Arbitrary Tree where
-  arbitrary = oneof [Node <$> arbitrary, Leaf <$> arbitrary]
+  arbitrary = oneof [Node <$> arbitrary, Leaf <$> arbitrary <*> arbitrary]

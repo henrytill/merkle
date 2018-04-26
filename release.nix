@@ -1,28 +1,8 @@
 let
 
-  config = {
-    packageOverrides = super: let self = super.pkgs; in {
-      haskell =
-        let
-          lib = self.haskell.lib;
-        in
-          super.haskell // {
-            packages = super.haskell.packages // {
-              ghc822 = super.haskell.packages.ghc822.override {
-                overrides = self: super: {
-                  serialise = lib.overrideCabal super.serialise (oldAttrs: { doCheck = false; });
-                };
-              };
-            };
-          };
-    };
-  };
-
-  pkgs = import <nixpkgs> { inherit config; };
+  pkgs = import <nixpkgs> {};
 
   systemDepends = [ pkgs.lmdb ];
-
-  # libraryPath = pkgs.stdenv.lib.makeLibraryPath systemDepends;
 
   jobs = rec {
 
@@ -38,6 +18,8 @@ let
           librarySystemDepends    = systemDepends;
           testSystemDepends       = systemDepends;
         });
-    };
+  };
+
 in
+
   jobs

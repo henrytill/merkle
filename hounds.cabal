@@ -18,7 +18,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Data.Hounds.MerklePatricia
                      , Data.Hounds.MerklePatricia.Db
-  other-modules:       Data.Hounds.Misc
+  -- other-modules:
   -- other-extensions:
   build-depends:       base              >=4.10 && <4.11
                      , array             >=0.5  && <0.6

@@ -1,11 +1,11 @@
 module Main (main) where
 
-import           Data.Hounds.MerklePatricia
-import           Data.Hounds.MerklePatricia.Instances ()
-import           Data.Serialize
-import           Test.Tasty                           (TestTree, defaultMain,
-                                                       testGroup)
-import           Test.Tasty.QuickCheck
+import           Data.Hounds.MerklePatricia         (Tree)
+import           Data.Hounds.MerklePatricia.Orphans ()
+import           Data.Serialize                     (decode, encode)
+import           Test.Tasty                         (TestTree, defaultMain,
+                                                     testGroup)
+import           Test.Tasty.QuickCheck              (testProperty)
 
 
 prop_roundTrip :: Tree -> Bool

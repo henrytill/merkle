@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Data.Hounds.MerklePatricia.Instances where
+module Data.Hounds.MerklePatricia.Orphans where
 
 import           Data.Hounds.MerklePatricia
 import           Test.QuickCheck

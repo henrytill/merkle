@@ -34,7 +34,7 @@ library
 test-suite tests
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
-  other-modules:       Data.Hounds.MerklePatricia.Instances
+  other-modules:       Data.Hounds.MerklePatricia.Orphans
   build-depends:       base
                      , bytestring           >=0.10 && <0.11
                      , cereal               >=0.5  && <0.6

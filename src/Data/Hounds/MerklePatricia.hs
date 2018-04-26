@@ -1,38 +1,47 @@
 module Data.Hounds.MerklePatricia where
 
 import qualified Crypto.Hash.BLAKE2.BLAKE2b as BLAKE2b
-import           Data.Array
+import           Data.Array                 (Array, listArray, (//))
 import qualified Data.ByteString            as B
 import           Data.Int                   (Int32)
 import           Data.Serialize
 
 
+newtype Hash = MkHash { unHash :: B.ByteString }
+  deriving (Eq, Show)
 
+mkHash :: B.ByteString -> Hash
+mkHash = MkHash . BLAKE2b.hash 32 mempty
 
-type Hash = B.ByteString
+putHash :: Putter Hash
+putHash = putByteString . unHash
 
-blake2b :: B.ByteString -> Hash
-blake2b = BLAKE2b.hash 32 mempty
+getHash :: Get Hash
+getHash = MkHash <$> getByteString 32
 
-type PointerBlock = Array Int32 (Maybe Hash)
+newtype PointerBlock = MkPointerBlock { unPointerBlock :: Array Int32 (Maybe Hash) }
+  deriving (Eq, Show)
 
 mkPointerBlock :: PointerBlock
-mkPointerBlock = listArray (0, 255) (replicate 256 Nothing)
+mkPointerBlock = MkPointerBlock (listArray (0, 255) (replicate 256 Nothing))
 
-update :: PointerBlock -> (Int32, Maybe B.ByteString) -> PointerBlock
-update pointerBlock indexedHash = pointerBlock // [indexedHash]
+update :: PointerBlock -> (Int32, Maybe Hash) -> PointerBlock
+update (MkPointerBlock arr) indexedHash = MkPointerBlock (arr // [indexedHash])
 
-putterPointerBlock :: Putter PointerBlock
-putterPointerBlock = putIArrayOf putInt32le (putMaybeOf putByteString)
+putPointerBlock :: Putter PointerBlock
+putPointerBlock = putIArrayOf putInt32le (putMaybeOf putHash) . unPointerBlock
 
 getPointerBlock :: Get PointerBlock
-getPointerBlock = getIArrayOf getInt32le (getMaybeOf (getByteString 32))
+getPointerBlock = MkPointerBlock <$> getIArrayOf getInt32le (getMaybeOf getHash)
 
 serializePointerBlock :: PointerBlock -> B.ByteString
-serializePointerBlock = runPut . putterPointerBlock
+serializePointerBlock = runPut . putPointerBlock
 
 deserializePointerBlock :: B.ByteString -> Either String PointerBlock
 deserializePointerBlock = runGet getPointerBlock
+
+hashPointerBlock :: PointerBlock -> Hash
+hashPointerBlock = mkHash . serializePointerBlock
 
 data Tree
   = Node PointerBlock
@@ -41,14 +50,14 @@ data Tree
 
 instance Serialize Tree where
   put (Node pb) = do { putWord8 0
-                     ; putterPointerBlock pb
+                     ; putPointerBlock pb
                      }
-  put (Leaf bs) = do { putWord8 1
-                     ; putByteString bs
+  put (Leaf hs) = do { putWord8 1
+                     ; putHash hs
                      }
   get           = do { tag <- getWord8
                      ; case tag of
                          0 -> Node <$> getPointerBlock
-                         1 -> Leaf <$> getByteString 32
+                         1 -> Leaf <$> getHash
                          _ -> fail "no such tag"
                      }

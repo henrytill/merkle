@@ -2,7 +2,6 @@
 
 module Data.Hounds.Db where
 
-import           Control.Concurrent    (runInBoundThread)
 import           Control.Exception     (onException)
 import qualified Data.ByteString       as B
 import           Database.LMDB.Raw
@@ -17,7 +16,7 @@ data Db = MkDb
   }
 
 mkDb :: FilePath -> Int -> IO Db
-mkDb dbDir mapSize = runInBoundThread $ do
+mkDb dbDir mapSize = do
   env <- mdb_env_create
   _   <- mdb_env_set_mapsize env mapSize
   _   <- mdb_env_set_maxreaders env 4
@@ -26,7 +25,7 @@ mkDb dbDir mapSize = runInBoundThread $ do
   txn <- mdb_txn_begin env Nothing False
   onException (do dbiLeaves <- mdb_dbi_open txn (Just "leaves") [MDB_CREATE]
                   dbiTrie   <- mdb_dbi_open txn (Just "trie")   [MDB_CREATE]
-                  dbiLog    <- mdb_dbi_open txn (Just "log")    [MDB_CREATE, MDB_DUPSORT]
+                  dbiLog    <- mdb_dbi_open txn (Just "log")    [MDB_CREATE]
                   _         <- mdb_txn_commit txn
                   return MkDb { dbEnv         = env
                               , dbDbiLeaves   = dbiLeaves
@@ -51,27 +50,27 @@ byteStringToMdbVal bs = do
                  , mv_data = ptr
                  }
 
-get :: Db -> (Db -> MDB_dbi) -> B.ByteString -> IO (Maybe B.ByteString)
-get db f bs = runInBoundThread $ do
-  txn <- mdb_txn_begin (dbEnv db) Nothing True
-  k   <- byteStringToMdbVal bs
-  onException (do ret <- mdb_get txn (f db) k
-                  _   <- mdb_txn_commit txn
-                  mapM mdbValToByteString ret)
-              (mdb_txn_abort txn)
+get :: MDB_dbi
+    -> MDB_txn
+    -> B.ByteString
+    -> IO (Maybe B.ByteString)
+get dbi txn bs = do
+  key <- byteStringToMdbVal bs
+  ret <- mdb_get txn dbi key
+  mapM mdbValToByteString ret
 
-put :: Db -> (Db -> MDB_dbi) -> B.ByteString -> B.ByteString -> IO Bool
-put db f key val = runInBoundThread $ do
-  txn <- mdb_txn_begin (dbEnv db) Nothing False
-  k   <- byteStringToMdbVal key
-  v   <- byteStringToMdbVal val
-  onException (do ret <- mdb_put (compileWriteFlags []) txn (f db) k v
-                  _   <- mdb_txn_commit txn
-                  return ret)
-              (mdb_txn_abort txn)
+put :: MDB_dbi
+    -> MDB_txn
+    -> B.ByteString
+    -> B.ByteString
+    -> IO Bool
+put dbi txn kbs vbs = do
+  key <- byteStringToMdbVal kbs
+  val <- byteStringToMdbVal vbs
+  mdb_put emptyWriteFlags txn dbi key val
 
 close :: Db -> IO ()
-close db = runInBoundThread $ do
+close db = do
   let env = dbEnv db
   _ <- mdb_dbi_close env (dbDbiLeaves db)
   _ <- mdb_dbi_close env (dbDbiTrie   db)

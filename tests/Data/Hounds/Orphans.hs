@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Data.Hounds.MerklePatricia.Orphans where
+module Data.Hounds.Orphans where
 
 import qualified Data.ByteString                      as B
-import           Data.Hounds.MerklePatricia
+import           Data.Hounds
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances.Array      ()
 import           Test.QuickCheck.Instances.ByteString ()

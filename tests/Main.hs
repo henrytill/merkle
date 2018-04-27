@@ -1,8 +1,7 @@
 module Main (main) where
 
-import           Data.Hounds.MerklePatricia
-import           Data.Hounds.MerklePatricia.Db
-import           Data.Hounds.MerklePatricia.Orphans   ()
+import           Data.Hounds
+import           Data.Hounds.Orphans                  ()
 import           Data.Serialize                       (decode, encode)
 import           System.IO.Temp                       (createTempDirectory, getCanonicalTemporaryDirectory)
 import           Test.QuickCheck                      (Property, arbitrary)

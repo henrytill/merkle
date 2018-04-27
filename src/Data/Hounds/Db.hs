@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Data.Hounds.MerklePatricia.Db where
+module Data.Hounds.Db where
 
 import           Control.Concurrent    (runInBoundThread)
 import           Control.Exception     (onException)

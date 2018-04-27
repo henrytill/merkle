@@ -10,34 +10,33 @@ import           Foreign.Marshal.Array (mallocArray, peekArray, pokeArray)
 
 
 data Db = MkDb
-  { dbEnv          :: MDB_env
-  , dbDbiLeaves    :: MDB_dbi
-  , dbDbiMaster    :: MDB_dbi
-  , dbDbiReversals :: MDB_dbi
-  , dbDbiForwards  :: MDB_dbi
+  { dbEnv       :: MDB_env
+  , dbDbiLeaves :: MDB_dbi
+  , dbDbiTrie   :: MDB_dbi
+  , dbDbiLog    :: MDB_dbi
   }
 
-mkDb :: FilePath -> IO Db
-mkDb dbDir = runInBoundThread $ do
-  env          <- mdb_env_create
-  let mapSize = 1024 * 1024 * 100
-  _            <- mdb_env_set_mapsize env mapSize
-  _            <- mdb_env_set_maxreaders env 4
-  _            <- mdb_env_set_maxdbs env 4
-  _            <- mdb_env_open env dbDir []
-  txn          <- mdb_txn_begin env Nothing False
-  onException (do dbiLeaves    <- mdb_dbi_open txn (Just "leaves")    [MDB_CREATE]
-                  dbiMaster    <- mdb_dbi_open txn (Just "master")    [MDB_CREATE]
-                  dbiReversals <- mdb_dbi_open txn (Just "reversals") [MDB_CREATE]
-                  dbiForwards  <- mdb_dbi_open txn (Just "forwards")  [MDB_CREATE]
-                  _            <- mdb_txn_commit txn
-                  return MkDb { dbEnv          = env
-                              , dbDbiLeaves    = dbiLeaves
-                              , dbDbiMaster    = dbiMaster
-                              , dbDbiReversals = dbiReversals
-                              , dbDbiForwards  = dbiForwards
+mkDb :: FilePath -> Int -> IO Db
+mkDb dbDir mapSize = runInBoundThread $ do
+  env <- mdb_env_create
+  _   <- mdb_env_set_mapsize env mapSize
+  _   <- mdb_env_set_maxreaders env 4
+  _   <- mdb_env_set_maxdbs env 4
+  _   <- mdb_env_open env dbDir []
+  txn <- mdb_txn_begin env Nothing False
+  onException (do dbiLeaves <- mdb_dbi_open txn (Just "leaves") [MDB_CREATE]
+                  dbiTrie   <- mdb_dbi_open txn (Just "trie")   [MDB_CREATE]
+                  dbiLog    <- mdb_dbi_open txn (Just "log")    [MDB_CREATE, MDB_DUPSORT]
+                  _         <- mdb_txn_commit txn
+                  return MkDb { dbEnv         = env
+                              , dbDbiLeaves   = dbiLeaves
+                              , dbDbiTrie     = dbiTrie
+                              , dbDbiLog      = dbiLog
                               })
               (mdb_txn_abort txn)
+
+emptyWriteFlags :: MDB_WriteFlags
+emptyWriteFlags = compileWriteFlags []
 
 mdbValToByteString :: MDB_val -> IO B.ByteString
 mdbValToByteString MDB_val{mv_size, mv_data}
@@ -74,8 +73,7 @@ put db f key val = runInBoundThread $ do
 close :: Db -> IO ()
 close db = runInBoundThread $ do
   let env = dbEnv db
-  _ <- mdb_dbi_close env (dbDbiLeaves    db)
-  _ <- mdb_dbi_close env (dbDbiMaster    db)
-  _ <- mdb_dbi_close env (dbDbiReversals db)
-  _ <- mdb_dbi_close env (dbDbiForwards  db)
+  _ <- mdb_dbi_close env (dbDbiLeaves db)
+  _ <- mdb_dbi_close env (dbDbiTrie   db)
+  _ <- mdb_dbi_close env (dbDbiLog    db)
   mdb_env_close env

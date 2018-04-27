@@ -30,7 +30,7 @@ initDb :: IO Db
 initDb = do
   dir  <- getCanonicalTemporaryDirectory
   path <- createTempDirectory dir "hounds-"
-  mkDb path
+  mkDb path (1024 * 1024 * 128)
 
 props :: [TestTree]
 props =

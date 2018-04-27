@@ -6,9 +6,7 @@ import qualified Crypto.Hash.BLAKE2.BLAKE2b    as BLAKE2b
 import           Data.Array                    (Array, listArray, (//))
 import qualified Data.ByteString               as B
 import           Data.Serialize
-import           Data.Word                     (Word8)
-
-import qualified Data.Hounds.MerklePatricia.Db as Db
+import           Data.Word                     (Word8, Word64)
 
 
 newtype Hash = MkHash { unHash :: B.ByteString }
@@ -87,11 +85,67 @@ hashTree :: Tree -> Hash
 hashTree (Node pb)   = hashPointerBlock pb
 hashTree (Leaf _ hs) = hs
 
-mkEmptyDb :: IO Db.Db
-mkEmptyDb = do
-  let emptyTree        = mkTree
-      emptyTreeHash    = hashTree emptyTree
-      emptyTreeEncoded = encode emptyTree
-  db <- Db.mkDb "db"
-  _  <- Db.put db Db.dbDbiMaster (unHash emptyTreeHash) emptyTreeEncoded
-  return db
+data LogKey = MkLogKey
+  { logKeyLeafHash :: Hash
+  , logKeyCount :: Word64
+  } deriving (Eq, Show)
+
+putLogKey :: Putter LogKey
+putLogKey lk = do
+  putHash     (logKeyLeafHash lk)
+  putWord64le (logKeyCount    lk)
+
+getLogKey :: Get LogKey
+getLogKey = MkLogKey <$> getHash <*> getWord64le
+
+data Operation = Insert | Delete
+  deriving (Eq, Show)
+
+putOperation :: Putter Operation
+putOperation Insert = putWord8 0
+putOperation Delete = putWord8 1
+
+getOperation :: Get Operation
+getOperation = do
+  tag <- getWord8
+  case tag of
+    0 -> return Insert
+    1 -> return Delete
+    _ -> fail "no such tag"
+
+data LogValue = MkLogValue
+  { logValueOperation :: Operation
+  , logValueLeafHash  :: Hash
+  } deriving (Eq, Show)
+
+putLogValue :: Putter LogValue
+putLogValue le = do
+  putOperation (logValueOperation le)
+  putHash      (logValueLeafHash  le)
+
+getLogValue :: Get LogValue
+getLogValue = MkLogValue <$> getOperation <*> getHash
+
+data LeafValue = MkLeafValue
+  { leafValueDeleted :: Bool
+  , leafValueBytes   :: B.ByteString
+  } deriving (Eq, Show)
+
+putLeafValue :: Putter LeafValue
+putLeafValue (MkLeafValue True  bs)
+  = do putWord8 1
+       putWord64le (fromIntegral (B.length bs))
+       putByteString bs
+putLeafValue (MkLeafValue False bs)
+  = do putWord8 0
+       putWord64le (fromIntegral (B.length bs))
+       putByteString bs
+
+getLeafValue :: Get LeafValue
+getLeafValue = do
+  tag <- getWord8
+  len <- getWord64le
+  case tag of
+    0 -> MkLeafValue False <$> getByteString (fromIntegral len)
+    1 -> MkLeafValue True  <$> getByteString (fromIntegral len)
+    _ -> fail "no such tag"

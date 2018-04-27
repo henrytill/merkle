@@ -22,3 +22,7 @@ putHash = putByteString . unHash
 
 getHash :: Get Hash
 getHash = MkHash <$> getByteString 32
+
+instance Serialize Hash where
+  put = putHash
+  get = getHash

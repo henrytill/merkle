@@ -19,6 +19,10 @@ putLogKey lk = do
 getLogKey :: Get LogKey
 getLogKey = MkLogKey <$> getHash <*> getWord64le
 
+instance Serialize LogKey where
+  put = putLogKey
+  get = getLogKey
+
 data Operation = Insert | Delete
   deriving (Eq, Show)
 
@@ -34,15 +38,6 @@ getOperation = do
     1 -> return Delete
     _ -> fail "no such tag"
 
-data LogValue = MkLogValue
-  { logValueOperation :: Operation
-  , logValueLeafHash  :: Hash
-  } deriving (Eq, Show)
-
-putLogValue :: Putter LogValue
-putLogValue le = do
-  putOperation (logValueOperation le)
-  putHash      (logValueLeafHash  le)
-
-getLogValue :: Get LogValue
-getLogValue = MkLogValue <$> getOperation <*> getHash
+instance Serialize Operation where
+  put = putOperation
+  get = getOperation

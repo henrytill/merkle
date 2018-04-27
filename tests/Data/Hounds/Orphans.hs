@@ -3,10 +3,14 @@
 module Data.Hounds.Orphans where
 
 import qualified Data.ByteString                      as B
-import           Data.Hounds
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances.Array      ()
 import           Test.QuickCheck.Instances.ByteString ()
+
+import           Data.Hounds.Hash
+import           Data.Hounds.HashSuffix
+import           Data.Hounds.PointerBlock
+import           Data.Hounds.Tree
 
 
 instance Arbitrary Hash where

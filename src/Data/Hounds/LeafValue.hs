@@ -27,3 +27,7 @@ getLeafValue = do
     0 -> MkLeafValue False <$> getByteString (fromIntegral len)
     1 -> MkLeafValue True  <$> getByteString (fromIntegral len)
     _ -> fail "no such tag"
+
+instance Serialize LeafValue where
+  put = putLeafValue
+  get = getLeafValue

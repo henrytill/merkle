@@ -14,41 +14,41 @@ import           Test.Tasty                           (TestTree, defaultMain,
                                                        testGroup, withResource)
 import           Test.Tasty.QuickCheck                (testProperty)
 
-import           Data.Hounds
+import qualified Data.Hounds.Db                       as Db
+import qualified Data.Hounds.Hash                     as Hash
 import           Data.Hounds.Orphans                  ()
 
 
 prop_roundTrip :: Bool -> Bool
 prop_roundTrip t = decode (encode t) == Right t
 
-go :: Db -> Hash -> B.ByteString -> IO (Maybe B.ByteString)
-go db hash bs = runInBoundThread $ do
-  txn <- mdb_txn_begin (dbEnv db) Nothing False
-  onException (do _    <- put (dbDbiLeaves db) txn (unHash hash) bs
-                  mbs  <- get (dbDbiLeaves db) txn (unHash hash)
-                  _    <- mdb_txn_commit txn
-                  return mbs)
-              (mdb_txn_abort txn)
-
-prop_roundTripDb :: IO Db -> Property
+prop_roundTripDb :: IO Db.Db -> Property
 prop_roundTripDb iodb = monadicIO $ do
-  db   <- run iodb
-  bs   <- pick arbitrary
-  let hash = mkHash bs
-  mbs  <- run (go db hash bs)
+  db  <- run iodb
+  bs  <- pick arbitrary
+  mbs <- run (go db (Hash.mkHash bs) bs)
   assert (mbs == Just bs)
+  where
+    go :: Db.Db -> Hash.Hash -> B.ByteString -> IO (Maybe B.ByteString)
+    go db hash bs = runInBoundThread $ do
+      txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
+      onException (do _   <- Db.put (Db.dbDbiLeaves db) txn (Hash.unHash hash) bs
+                      mbs <- Db.get (Db.dbDbiLeaves db) txn (Hash.unHash hash)
+                      _   <- mdb_txn_commit txn
+                      return mbs)
+                  (mdb_txn_abort txn)
 
-initDb :: IO Db
-initDb = do
+initTempDb :: IO Db.Db
+initTempDb = do
   dir  <- getCanonicalTemporaryDirectory
   path <- createTempDirectory dir "hounds-"
-  mkDb path (1024 * 1024 * 128)
+  Db.mkDb path (1024 * 1024 * 128)
 
 props :: [TestTree]
 props =
   [ testProperty "Round trip Tree serialization" prop_roundTrip
-  , withResource (runInBoundThread initDb)
-                 (runInBoundThread . close)
+  , withResource (runInBoundThread initTempDb)
+                 (runInBoundThread . Db.close)
                  (testProperty "Round trip leaves to db" . prop_roundTripDb)
   ]
 

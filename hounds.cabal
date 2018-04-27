@@ -17,13 +17,14 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Data.Hounds
-  other-modules:       Data.Hounds.Db
+                     , Data.Hounds.Db
                      , Data.Hounds.Hash
                      , Data.Hounds.HashSuffix
                      , Data.Hounds.LeafValue
                      , Data.Hounds.Log
                      , Data.Hounds.PointerBlock
                      , Data.Hounds.Tree
+  -- other-modules:
   -- other-extensions:
   build-depends:       base              >=4.10 && <4.11
                      , array             >=0.5  && <0.6

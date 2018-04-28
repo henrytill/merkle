@@ -52,6 +52,32 @@ twoPuts ioenv = runInBoundThread $ do
   count <- takeMVar (Db.envTxnCount env)
   assertEqual "the transaction count did not equal 2" 2 count
 
+duplicatePuts :: IO Db.Env -> Assertion
+duplicatePuts ioenv = runInBoundThread $ do
+  env   <- ioenv
+  _     <- Db.loggedPut env (C.pack "one")
+  _     <- Db.loggedPut env (C.pack "one")
+  count <- takeMVar (Db.envTxnCount env)
+  assertEqual "the transaction count did not equal 1" 1 count
+
+twoPutsOneDelete :: IO Db.Env -> Assertion
+twoPutsOneDelete ioenv = runInBoundThread $ do
+  env   <- ioenv
+  hash  <- Db.loggedPut env (C.pack "one")
+  _     <- Db.loggedPut env (C.pack "two")
+  _     <- Db.loggedDel env hash
+  count <- takeMVar (Db.envTxnCount env)
+  assertEqual "the transaction count did not equal 3" 3 count
+
+onePutTwoDeletes :: IO Db.Env -> Assertion
+onePutTwoDeletes ioenv = runInBoundThread $ do
+  env   <- ioenv
+  hash  <- Db.loggedPut env (C.pack "one")
+  _     <- Db.loggedDel env hash
+  _     <- Db.loggedDel env hash
+  count <- takeMVar (Db.envTxnCount env)
+  assertEqual "the transaction count did not equal 2" 2 count
+
 -- * Setup
 
 initTempDb :: IO Db.Db
@@ -76,6 +102,15 @@ units =
   [ withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Db.envDb)
                  (testCase "two puts" . twoPuts)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Db.envDb)
+                 (testCase "duplicate puts" . duplicatePuts)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Db.envDb)
+                 (testCase "two puts, one delete" . twoPutsOneDelete)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Db.envDb)
+                 (testCase "one put, two deletes" . onePutTwoDeletes)
   ]
 
 tests :: TestTree

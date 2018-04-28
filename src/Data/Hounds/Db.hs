@@ -3,7 +3,8 @@
 module Data.Hounds.Db where
 
 import           Control.Concurrent.MVar (MVar, newMVar, putMVar, takeMVar)
-import           Control.Exception       (onException)
+import           Control.Exception       (Exception, onException, throwIO)
+import           Control.Monad           (unless)
 import qualified Data.ByteString         as B
 import qualified Data.Serialize          as S
 import           Data.Word               (Word64)
@@ -14,6 +15,60 @@ import qualified Data.Hounds.Hash        as Hash
 import qualified Data.Hounds.LeafValue   as LeafValue
 import qualified Data.Hounds.Log         as Log
 
+
+data DbException = PutException
+  deriving Show
+
+instance Exception DbException
+
+-- * Low-level API
+
+emptyWriteFlags :: MDB_WriteFlags
+emptyWriteFlags = compileWriteFlags []
+
+writeFlags :: MDB_WriteFlags
+writeFlags = compileWriteFlags [MDB_NOOVERWRITE]
+
+mdbValToByteString :: MDB_val -> IO B.ByteString
+mdbValToByteString MDB_val{mv_size, mv_data}
+  = B.pack <$> peekArray (fromIntegral mv_size) mv_data
+
+byteStringToMdbVal :: B.ByteString -> IO MDB_val
+byteStringToMdbVal bs = do
+  let len = B.length bs
+  ptr <- mallocArray len
+  pokeArray ptr (B.unpack bs)
+  return (MDB_val (fromIntegral len) ptr)
+
+get :: MDB_dbi
+    -> MDB_txn
+    -> B.ByteString
+    -> IO (Maybe B.ByteString)
+get dbi txn bs = do
+  key <- byteStringToMdbVal bs
+  ret <- mdb_get txn dbi key
+  mapM mdbValToByteString ret
+
+del :: MDB_dbi
+    -> MDB_txn
+    -> B.ByteString
+    -> IO Bool
+del dbi txn bs = do
+  key <- byteStringToMdbVal bs
+  mdb_del txn dbi key Nothing
+
+put :: MDB_dbi
+    -> MDB_txn
+    -> B.ByteString
+    -> B.ByteString
+    -> IO Bool
+put dbi txn kbs vbs = do
+  key <- byteStringToMdbVal kbs
+  val <- byteStringToMdbVal vbs
+  mdb_put writeFlags txn dbi key val
+
+
+-- * High-level API
 
 data Db = MkDb
   { dbEnv       :: MDB_env
@@ -49,48 +104,47 @@ data Env = MkEnv
 mkEnv :: Db -> IO Env
 mkEnv db = MkEnv db <$> newMVar 0
 
-emptyWriteFlags :: MDB_WriteFlags
-emptyWriteFlags = compileWriteFlags []
+loggedPut :: Env -> B.ByteString -> IO Hash.Hash
+loggedPut env bs = do
+  let db          = envDb env
+      txnCountVar = envTxnCount env
+  txn   <- mdb_txn_begin (dbEnv db) Nothing False
+  count <- takeMVar txnCountVar
+  onException (do let hash      = Hash.mkHash bs
+                      logKey    = Log.MkLogKey hash count
+                      leafValue = LeafValue.MkLeafValue False bs
+                  succPut <- put (dbDbiLeaves db) txn (S.encode hash) (S.encode leafValue)
+                  if succPut
+                    then do succLog <- put (dbDbiLog db) txn (S.encode logKey) (S.encode Log.Insert)
+                            unless succLog (throwIO PutException)
+                            mdb_txn_commit txn
+                            putMVar txnCountVar (count + 1)
+                            return hash
+                    else do mdb_txn_commit txn
+                            putMVar txnCountVar count
+                            return hash)
+              (do mdb_txn_abort txn
+                  putMVar txnCountVar count)
 
-mdbValToByteString :: MDB_val -> IO B.ByteString
-mdbValToByteString MDB_val{mv_size, mv_data}
-  = B.pack <$> peekArray (fromIntegral mv_size) mv_data
-
-byteStringToMdbVal :: B.ByteString -> IO MDB_val
-byteStringToMdbVal bs = do
-  let len = B.length bs
-  ptr <- mallocArray len
-  pokeArray ptr (B.unpack bs)
-  return MDB_val { mv_size = fromIntegral len
-                 , mv_data = ptr
-                 }
-
-get :: MDB_dbi
-    -> MDB_txn
-    -> B.ByteString
-    -> IO (Maybe B.ByteString)
-get dbi txn bs = do
-  key <- byteStringToMdbVal bs
-  ret <- mdb_get txn dbi key
-  mapM mdbValToByteString ret
-
-del :: MDB_dbi
-    -> MDB_txn
-    -> B.ByteString
-    -> IO Bool
-del dbi txn bs = do
-  key <- byteStringToMdbVal bs
-  mdb_del txn dbi key Nothing
-
-put :: MDB_dbi
-    -> MDB_txn
-    -> B.ByteString
-    -> B.ByteString
-    -> IO Bool
-put dbi txn kbs vbs = do
-  key <- byteStringToMdbVal kbs
-  val <- byteStringToMdbVal vbs
-  mdb_put emptyWriteFlags txn dbi key val
+loggedDel :: Env -> Hash.Hash -> IO Bool
+loggedDel env hash = do
+  let db          = envDb env
+      txnCountVar = envTxnCount env
+  txn   <- mdb_txn_begin (dbEnv db) Nothing False
+  count <- takeMVar txnCountVar
+  onException (do let logKey = Log.MkLogKey hash count
+                  succPut <- del (dbDbiLeaves db) txn (S.encode hash)
+                  if succPut
+                    then do succLog <- put (dbDbiLog db) txn (S.encode logKey) (S.encode Log.Delete)
+                            unless succLog (throwIO PutException)
+                            mdb_txn_commit txn
+                            putMVar txnCountVar (count + 1)
+                            return succLog
+                    else do mdb_txn_commit txn
+                            putMVar txnCountVar count
+                            return succPut)
+              (do mdb_txn_abort txn
+                  putMVar txnCountVar count)
 
 close :: Db -> IO ()
 close db = do
@@ -99,38 +153,3 @@ close db = do
   mdb_dbi_close env (dbDbiTrie   db)
   mdb_dbi_close env (dbDbiLog    db)
   mdb_env_close env
-
-withTxn :: Num i
-        => MVar i
-        -> MDB_txn
-        -> (i -> MDB_txn -> IO a)
-        -> IO a
-withTxn txnCountVar txn f =
-  onException (do count <- takeMVar txnCountVar
-                  ret   <- f count txn
-                  mdb_txn_commit txn
-                  putMVar txnCountVar (count + 1)
-                  return ret)
-              (mdb_txn_abort txn)
-
-loggedPut :: Env -> B.ByteString -> IO Bool
-loggedPut env bs = do
-  let db = envDb env
-  t <- mdb_txn_begin (dbEnv db) Nothing False
-  withTxn (envTxnCount env) t $ \ count txn -> do
-    let hash      = Hash.mkHash bs
-        logKey    = Log.MkLogKey hash (fromIntegral count)
-        leafValue = LeafValue.MkLeafValue False bs
-    b1 <- put (dbDbiLeaves db) txn (S.encode hash)   (S.encode leafValue)
-    b2 <- put (dbDbiLog    db) txn (S.encode logKey) (S.encode Log.Insert)
-    return (b1 && b2)
-
-loggedDel :: Env -> Hash.Hash -> IO Bool
-loggedDel env hash = do
-  let db = envDb env
-  t <- mdb_txn_begin (dbEnv db) Nothing False
-  withTxn (envTxnCount env) t $ \ count txn -> do
-    let logKey = Log.MkLogKey hash (fromIntegral count)
-    b1 <- del (dbDbiLeaves db) txn (S.encode hash)
-    b2 <- put (dbDbiLog    db) txn (S.encode logKey) (S.encode Log.Delete)
-    return (b1 && b2)

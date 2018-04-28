@@ -23,7 +23,7 @@ library
                      , Data.Hounds.LeafValue
                      , Data.Hounds.Log
                      , Data.Hounds.PointerBlock
-                     , Data.Hounds.Tree
+                     , Data.Hounds.Trie
   -- other-modules:
   -- other-extensions:
   build-depends:       base              >=4.10 && <4.11

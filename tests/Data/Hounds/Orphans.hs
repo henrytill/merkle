@@ -10,7 +10,7 @@ import           Test.QuickCheck.Instances.ByteString ()
 import           Data.Hounds.Hash
 import           Data.Hounds.HashSuffix
 import           Data.Hounds.PointerBlock
-import           Data.Hounds.Tree
+import           Data.Hounds.Trie
 
 
 instance Arbitrary Hash where
@@ -22,5 +22,5 @@ instance Arbitrary PointerBlock where
 instance Arbitrary HashSuffix where
   arbitrary = MkHashSuffix <$> arbitrary `suchThat` (\ bs -> B.length bs <= 32)
 
-instance Arbitrary Tree where
+instance Arbitrary Trie where
   arbitrary = oneof [Node <$> arbitrary, Leaf <$> arbitrary <*> arbitrary]

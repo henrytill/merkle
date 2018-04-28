@@ -9,7 +9,7 @@ import qualified Data.ByteString         as B
 import qualified Data.Serialize          as S
 import           Data.Word               (Word64)
 import           Database.LMDB.Raw
-import           Foreign.Marshal.Array   (mallocArray, peekArray, pokeArray)
+import           Foreign.Marshal.Array   (peekArray, withArray)
 
 import qualified Data.Hounds.Hash        as Hash
 import qualified Data.Hounds.LeafValue   as LeafValue
@@ -33,40 +33,36 @@ mdbValToByteString :: MDB_val -> IO B.ByteString
 mdbValToByteString MDB_val{mv_size, mv_data}
   = B.pack <$> peekArray (fromIntegral mv_size) mv_data
 
-byteStringToMdbVal :: B.ByteString -> IO MDB_val
-byteStringToMdbVal bs = do
-  let len = B.length bs
-  ptr <- mallocArray len
-  pokeArray ptr (B.unpack bs)
-  return (MDB_val (fromIntegral len) ptr)
-
 get :: MDB_dbi
     -> MDB_txn
     -> B.ByteString
     -> IO (Maybe B.ByteString)
-get dbi txn bs = do
-  key <- byteStringToMdbVal bs
-  ret <- mdb_get txn dbi key
-  mapM mdbValToByteString ret
+get dbi txn bs
+  = withArray (B.unpack bs) $ \ ptr ->
+    do ret <- mdb_get txn dbi (MDB_val (fromIntegral (B.length bs)) ptr)
+       mapM mdbValToByteString ret
 
 del :: MDB_dbi
     -> MDB_txn
     -> B.ByteString
     -> IO Bool
-del dbi txn bs = do
-  key <- byteStringToMdbVal bs
-  mdb_del txn dbi key Nothing
+del dbi txn bs
+  = withArray (B.unpack bs) $ \ ptr ->
+      mdb_del txn dbi (MDB_val (fromIntegral (B.length bs)) ptr) Nothing
 
 put :: MDB_dbi
     -> MDB_txn
     -> B.ByteString
     -> B.ByteString
     -> IO Bool
-put dbi txn kbs vbs = do
-  key <- byteStringToMdbVal kbs
-  val <- byteStringToMdbVal vbs
-  mdb_put writeFlags txn dbi key val
-
+put dbi txn kbs vbs
+  = withArray (B.unpack kbs) $ \ kptr ->
+    withArray (B.unpack vbs) $ \ vptr ->
+    let
+      key = MDB_val (fromIntegral (B.length kbs)) kptr
+      val = MDB_val (fromIntegral (B.length vbs)) vptr
+    in
+      mdb_put writeFlags txn dbi key val
 
 -- * High-level API
 

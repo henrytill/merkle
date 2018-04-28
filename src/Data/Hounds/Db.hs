@@ -16,7 +16,7 @@ import qualified Data.Hounds.LeafValue   as LeafValue
 import qualified Data.Hounds.Log         as Log
 
 
-data DbException = PutException
+data DbException = LogException
   deriving Show
 
 instance Exception DbException
@@ -116,7 +116,7 @@ loggedPut env bs = do
                   succPut <- put (dbDbiLeaves db) txn (S.encode hash) (S.encode leafValue)
                   if succPut
                     then do succLog <- put (dbDbiLog db) txn (S.encode logKey) (S.encode Log.Insert)
-                            unless succLog (throwIO PutException)
+                            unless succLog (throwIO LogException)
                             mdb_txn_commit txn
                             putMVar txnCountVar (count + 1)
                             return hash
@@ -136,7 +136,7 @@ loggedDel env hash = do
                   succPut <- del (dbDbiLeaves db) txn (S.encode hash)
                   if succPut
                     then do succLog <- put (dbDbiLog db) txn (S.encode logKey) (S.encode Log.Delete)
-                            unless succLog (throwIO PutException)
+                            unless succLog (throwIO LogException)
                             mdb_txn_commit txn
                             putMVar txnCountVar (count + 1)
                             return succLog

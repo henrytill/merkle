@@ -20,3 +20,7 @@ getHashSuffix :: Get HashSuffix
 getHashSuffix = do
   len <- getWord8
   MkHashSuffix <$> getByteString (fromIntegral len)
+
+instance Serialize HashSuffix where
+  put = putHashSuffix
+  get = getHashSuffix

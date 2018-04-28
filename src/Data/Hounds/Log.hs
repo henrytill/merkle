@@ -41,3 +41,8 @@ getOperation = do
 instance Serialize Operation where
   put = putOperation
   get = getOperation
+
+data Range = MkRange
+  { logKeyCountLo :: Word64
+  , logKeyCountHi :: Word64
+  } deriving (Eq, Show)

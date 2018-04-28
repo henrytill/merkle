@@ -107,7 +107,7 @@ loggedPut env bs = do
   txn   <- mdb_txn_begin (dbEnv db) Nothing False
   count <- takeMVar txnCountVar
   onException (do let hash      = Hash.mkHash bs
-                      logKey    = Log.MkLogKey hash count
+                      logKey    = Log.MkLogKey count hash
                       leafValue = LeafValue.MkLeafValue False bs
                   succPut <- put (dbDbiLeaves db) txn (S.encode hash) (S.encode leafValue)
                   if succPut
@@ -128,7 +128,7 @@ loggedDel env hash = do
       txnCountVar = envTxnCount env
   txn   <- mdb_txn_begin (dbEnv db) Nothing False
   count <- takeMVar txnCountVar
-  onException (do let logKey = Log.MkLogKey hash count
+  onException (do let logKey = Log.MkLogKey count hash
                   succPut <- del (dbDbiLeaves db) txn (S.encode hash)
                   if succPut
                     then do succLog <- put (dbDbiLog db) txn (S.encode logKey) (S.encode Log.Delete)

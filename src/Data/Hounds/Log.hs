@@ -7,17 +7,17 @@ import           Data.Hounds.Hash
 
 
 data LogKey = MkLogKey
-  { logKeyLeafHash :: Hash
-  , logKeyCount    :: Word64
+  { logKeyCount    :: Word64
+  , logKeyLeafHash :: Hash
   } deriving (Eq, Show)
 
 putLogKey :: Putter LogKey
 putLogKey lk = do
-  putHash     (logKeyLeafHash lk)
   putWord64le (logKeyCount    lk)
+  putHash     (logKeyLeafHash lk)
 
 getLogKey :: Get LogKey
-getLogKey = MkLogKey <$> getHash <*> getWord64le
+getLogKey = MkLogKey <$> getWord64le <*> getHash
 
 instance Serialize LogKey where
   put = putLogKey

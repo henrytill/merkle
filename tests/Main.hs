@@ -100,6 +100,21 @@ twoPutsFetchLog ioenv = runInBoundThread $ do
   lg    <- Db.getLog  env (Log.MkRange 0 1)
   assertEqual "the log did not contain the expected contents" expected lg
 
+threePutsFetchLog :: IO Db.Env -> Assertion
+threePutsFetchLog ioenv = runInBoundThread $ do
+  let one      = C.pack "one"
+      two      = C.pack "two"
+      three    = C.pack "three"
+      expected = [ (Log.MkLogKey 1 (Hash.mkHash two),   Log.Insert)
+                 , (Log.MkLogKey 2 (Hash.mkHash three), Log.Insert)
+                 ]
+  env   <- ioenv
+  _     <- Db.putLeaf env one
+  _     <- Db.putLeaf env two
+  _     <- Db.putLeaf env three
+  lg    <- Db.getLog  env (Log.MkRange 1 2)
+  assertEqual "the log did not contain the expected contents" expected lg
+
 -- * Setup
 
 initTempDb :: IO Db.Db
@@ -139,6 +154,9 @@ units =
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Db.envDb)
                  (testCase "two puts, fetchLog" . twoPutsFetchLog)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Db.envDb)
+                 (testCase "three puts, fetchLog" . threePutsFetchLog)
   ]
 
 tests :: TestTree

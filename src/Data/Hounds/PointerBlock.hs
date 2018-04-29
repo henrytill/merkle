@@ -30,8 +30,8 @@ instance Serialize PointerBlock where
   put = putPointerBlock
   get = getPointerBlock
 
-update :: PointerBlock -> (Word8, Maybe Hash) -> PointerBlock
-update (MkPointerBlock arr) indexedHash = MkPointerBlock (arr // [indexedHash])
+update :: PointerBlock -> [(Word8, Maybe Hash)] -> PointerBlock
+update (MkPointerBlock arr) indexedHashes = MkPointerBlock (arr // indexedHashes)
 
 hashPointerBlock :: PointerBlock -> Hash
 hashPointerBlock = mkHash . encode

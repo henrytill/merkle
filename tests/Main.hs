@@ -45,37 +45,45 @@ prop_roundTripDb iodb = M.monadicIO $ do
 
 -- * Unit Tests
 
+putGet :: IO Db.Env -> Assertion
+putGet ioenv = runInBoundThread $ do
+  let one = C.pack "one"
+  env        <- ioenv
+  hash       <- Db.putLeaf env one
+  (Just ret) <- Db.getLeaf env hash
+  assertEqual "round" one ret
+
 twoPuts :: IO Db.Env -> Assertion
 twoPuts ioenv = runInBoundThread $ do
   env   <- ioenv
-  _     <- Db.loggedPut env (C.pack "one")
-  _     <- Db.loggedPut env (C.pack "two")
+  _     <- Db.putLeaf env (C.pack "one")
+  _     <- Db.putLeaf env (C.pack "two")
   count <- takeMVar (Db.envTxnCount env)
   assertEqual "the transaction count did not equal 2" 2 count
 
 duplicatePuts :: IO Db.Env -> Assertion
 duplicatePuts ioenv = runInBoundThread $ do
   env   <- ioenv
-  _     <- Db.loggedPut env (C.pack "one")
-  _     <- Db.loggedPut env (C.pack "one")
+  _     <- Db.putLeaf env (C.pack "one")
+  _     <- Db.putLeaf env (C.pack "one")
   count <- takeMVar (Db.envTxnCount env)
   assertEqual "the transaction count did not equal 1" 1 count
 
 twoPutsOneDelete :: IO Db.Env -> Assertion
 twoPutsOneDelete ioenv = runInBoundThread $ do
   env   <- ioenv
-  hash  <- Db.loggedPut env (C.pack "one")
-  _     <- Db.loggedPut env (C.pack "two")
-  _     <- Db.loggedDel env hash
+  hash  <- Db.putLeaf env (C.pack "one")
+  _     <- Db.putLeaf env (C.pack "two")
+  _     <- Db.delLeaf env hash
   count <- takeMVar (Db.envTxnCount env)
   assertEqual "the transaction count did not equal 3" 3 count
 
 onePutTwoDeletes :: IO Db.Env -> Assertion
 onePutTwoDeletes ioenv = runInBoundThread $ do
   env   <- ioenv
-  hash  <- Db.loggedPut env (C.pack "one")
-  _     <- Db.loggedDel env hash
-  _     <- Db.loggedDel env hash
+  hash  <- Db.putLeaf env (C.pack "one")
+  _     <- Db.delLeaf env hash
+  _     <- Db.delLeaf env hash
   count <- takeMVar (Db.envTxnCount env)
   assertEqual "the transaction count did not equal 2" 2 count
 
@@ -87,9 +95,9 @@ twoPutsFetchLog ioenv = runInBoundThread $ do
                  , (Log.MkLogKey 1 (Hash.mkHash two), Log.Insert)
                  ]
   env   <- ioenv
-  _     <- Db.loggedPut env one
-  _     <- Db.loggedPut env two
-  lg    <- Db.fetchLog  env (Log.MkRange 0 1)
+  _     <- Db.putLeaf env one
+  _     <- Db.putLeaf env two
+  lg    <- Db.getLog  env (Log.MkRange 0 1)
   assertEqual "the log did not contain the expected contents" expected lg
 
 -- * Setup
@@ -114,6 +122,9 @@ props =
 units :: [TestTree]
 units =
   [ withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Db.envDb)
+                 (testCase "put get" . putGet)
+  , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Db.envDb)
                  (testCase "two puts" . twoPuts)
   , withResource (runInBoundThread initTempEnv)

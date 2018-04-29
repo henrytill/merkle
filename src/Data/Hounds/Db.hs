@@ -1,26 +1,43 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Data.Hounds.Db where
+module Data.Hounds.Db
+  ( put
+  , get
+  , Db(..)
+  , mkDb
+  , Env(..)
+  , mkEnv
+  , putLeaf
+  , delLeaf
+  , getLeaf
+  , getLog
+  , close
+  ) where
 
-import           Control.Concurrent.MVar (MVar, newMVar, putMVar, takeMVar)
-import           Control.Exception       (Exception, onException, throwIO)
-import           Control.Monad           (unless)
-import qualified Data.ByteString         as B
-import qualified Data.Serialize          as S
-import           Data.Word               (Word64)
+import           Control.Concurrent.MVar  (MVar, newMVar, putMVar, takeMVar)
+import           Control.Exception        (Exception, finally, onException,
+                                           throwIO)
+import           Control.Monad            (unless)
+import qualified Data.ByteString          as B
+import qualified Data.ByteString.Internal as BI
+import qualified Data.Serialize           as S
+import           Data.Word                (Word64)
 import           Database.LMDB.Raw
-import           Foreign.Marshal.Alloc   (alloca)
-import           Foreign.Marshal.Array   (peekArray, withArray)
-import           Foreign.Ptr             (Ptr)
-import           Foreign.Storable        (peek, poke)
+import           Foreign.ForeignPtr       (withForeignPtr)
+import           Foreign.Marshal.Alloc    (alloca)
+import           Foreign.Marshal.Array    (withArray)
+import           Foreign.Marshal.Utils    (copyBytes)
+import           Foreign.Ptr              (Ptr, plusPtr)
+import           Foreign.Storable         (peek, poke)
 
-import qualified Data.Hounds.Hash        as Hash
-import qualified Data.Hounds.LeafValue   as LeafValue
-import qualified Data.Hounds.Log         as Log
+import qualified Data.Hounds.Hash         as Hash
+import qualified Data.Hounds.LeafValue    as LeafValue
+import qualified Data.Hounds.Log          as Log
 
 
 data DbException
   = GetException
+  | PutException
   | LogException
   | SerializationException String
   deriving Show
@@ -29,32 +46,38 @@ instance Exception DbException
 
 -- * Low-level API
 
-emptyWriteFlags :: MDB_WriteFlags
-emptyWriteFlags = compileWriteFlags []
-
 writeFlags :: MDB_WriteFlags
 writeFlags = compileWriteFlags [MDB_NOOVERWRITE]
 
 mdbValToByteString :: MDB_val -> IO B.ByteString
 mdbValToByteString MDB_val{mv_size, mv_data}
-  = B.pack <$> peekArray (fromIntegral mv_size) mv_data
+  = let
+      size = fromIntegral mv_size
+    in
+      BI.create size $ \ ptr -> copyBytes ptr mv_data size
 
 get :: MDB_dbi
     -> MDB_txn
     -> B.ByteString
     -> IO (Maybe B.ByteString)
 get dbi txn bs
-  = withArray (B.unpack bs) $ \ ptr ->
-    do ret <- mdb_get txn dbi (MDB_val (fromIntegral (B.length bs)) ptr)
-       mapM mdbValToByteString ret
+  = let
+      (fptr, off, len) = BI.toForeignPtr bs
+    in
+      withForeignPtr fptr $ \ ptr ->
+      do ret <- mdb_get txn dbi (MDB_val (fromIntegral len) (ptr `plusPtr` off))
+         mapM mdbValToByteString ret
 
 del :: MDB_dbi
     -> MDB_txn
     -> B.ByteString
     -> IO Bool
 del dbi txn bs
-  = withArray (B.unpack bs) $ \ ptr ->
-      mdb_del txn dbi (MDB_val (fromIntegral (B.length bs)) ptr) Nothing
+  = let
+      (fptr, off, len) = BI.toForeignPtr bs
+    in
+      withForeignPtr fptr $ \ ptr ->
+      mdb_del txn dbi (MDB_val (fromIntegral len) (ptr `plusPtr` off)) Nothing
 
 put :: MDB_dbi
     -> MDB_txn
@@ -62,13 +85,14 @@ put :: MDB_dbi
     -> B.ByteString
     -> IO Bool
 put dbi txn kbs vbs
-  = withArray (B.unpack kbs) $ \ kptr ->
-    withArray (B.unpack vbs) $ \ vptr ->
-    let
-      key = MDB_val (fromIntegral (B.length kbs)) kptr
-      val = MDB_val (fromIntegral (B.length vbs)) vptr
+  = let
+      (kfptr, koff, klen) = BI.toForeignPtr kbs
+      (vfptr, voff, vlen) = BI.toForeignPtr vbs
     in
-      mdb_put writeFlags txn dbi key val
+      withForeignPtr kfptr $ \ kptr ->
+      withForeignPtr vfptr $ \ vptr ->
+      mdb_put writeFlags txn dbi (MDB_val (fromIntegral klen) (kptr `plusPtr` koff))
+                                 (MDB_val (fromIntegral vlen) (vptr `plusPtr` voff))
 
 -- * High-level API
 
@@ -106,8 +130,8 @@ data Env = MkEnv
 mkEnv :: Db -> IO Env
 mkEnv db = MkEnv db <$> newMVar 0
 
-loggedPut :: Env -> B.ByteString -> IO Hash.Hash
-loggedPut env bs = do
+putLeaf :: Env -> B.ByteString -> IO Hash.Hash
+putLeaf env bs = do
   let db          = envDb env
       txnCountVar = envTxnCount env
   txn   <- mdb_txn_begin (dbEnv db) Nothing False
@@ -128,8 +152,8 @@ loggedPut env bs = do
               (do mdb_txn_abort txn
                   putMVar txnCountVar count)
 
-loggedDel :: Env -> Hash.Hash -> IO Bool
-loggedDel env hash = do
+delLeaf :: Env -> Hash.Hash -> IO Bool
+delLeaf env hash = do
   let db          = envDb env
       txnCountVar = envTxnCount env
   txn   <- mdb_txn_begin (dbEnv db) Nothing False
@@ -148,7 +172,23 @@ loggedDel env hash = do
               (do mdb_txn_abort txn
                   putMVar txnCountVar count)
 
-deserializeLogEntry :: Ptr MDB_val -> Ptr MDB_val -> IO (Either String (Log.LogKey, Log.Operation))
+getLeaf :: Env -> Hash.Hash -> IO (Maybe B.ByteString)
+getLeaf env hash = do
+  let db = envDb env
+  txn <- mdb_txn_begin (dbEnv db) Nothing True
+  finally (do mbs <- get (dbDbiLeaves db) txn (S.encode hash)
+              case mbs of
+                Nothing -> return Nothing
+                Just bs -> do let val = S.decode bs :: Either String LeafValue.LeafValue
+                              leafValue <- either (throwIO . SerializationException) pure val
+                              return $ if LeafValue.leafValueDeleted leafValue
+                                         then Nothing
+                                         else Just (LeafValue.leafValueBytes leafValue))
+          (mdb_txn_abort txn)
+
+deserializeLogEntry :: Ptr MDB_val
+                    -> Ptr MDB_val
+                    -> IO (Either String (Log.LogKey, Log.Operation))
 deserializeLogEntry keyPtr valPtr = do
   kbs <- peek keyPtr >>= mdbValToByteString
   vbs <- peek valPtr >>= mdbValToByteString
@@ -172,20 +212,17 @@ positionLo cursor (Log.MkRange lo _)
       do poke keyPtr (MDB_val (fromIntegral (B.length bs)) ptr)
          mdb_cursor_get MDB_SET_RANGE cursor keyPtr valPtr
 
-fetchLog :: Env -> Log.Range -> IO [(Log.LogKey, Log.Operation)]
-fetchLog env range = do
+getLog :: Env -> Log.Range -> IO [(Log.LogKey, Log.Operation)]
+getLog env range = do
   let db = envDb env
   txn    <- mdb_txn_begin (dbEnv db) Nothing False
   cursor <- mdb_cursor_open txn (dbDbiLog db)
-  onException (do succPos <- positionLo cursor range
-                  if succPos
-                    then do ret <- go cursor range []
-                            mdb_cursor_close cursor
-                            mdb_txn_commit txn
-                            return ret
-                    else return [])
-              (do mdb_cursor_close cursor
-                  mdb_txn_abort txn)
+  finally (do succPos <- positionLo cursor range
+              if succPos
+                then go cursor range []
+                else return [])
+          (do mdb_cursor_close cursor
+              mdb_txn_abort txn)
     where
       go :: MDB_cursor
          -> Log.Range

@@ -18,11 +18,11 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Data.Hounds
                      , Data.Hounds.Db
+                     , Data.Hounds.Env
                      , Data.Hounds.Hash
-                     , Data.Hounds.HashSuffix
-                     , Data.Hounds.LeafValue
                      , Data.Hounds.Log
                      , Data.Hounds.PointerBlock
+                     , Data.Hounds.Store
                      , Data.Hounds.Trie
   -- other-modules:
   -- other-extensions:

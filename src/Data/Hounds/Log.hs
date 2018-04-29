@@ -1,27 +1,35 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Data.Hounds.Log where
 
 import           Data.Serialize
-import           Data.Word        (Word64)
-
-import           Data.Hounds.Hash
+import           Data.Word      (Word64)
 
 
-data LogKey = MkLogKey
-  { logKeyCount    :: Word64
-  , logKeyLeafHash :: Hash
+data LogEntry k v = MkLogEntry
+  { logEntryKey       :: k
+  , logEntryCount     :: Word64
+  , logEntryOperation :: Operation
+  , logEntryValue     :: v
   } deriving (Eq, Show)
 
-putLogKey :: Putter LogKey
-putLogKey lk = do
-  putWord64le (logKeyCount    lk)
-  putHash     (logKeyLeafHash lk)
+putLogEntry :: (Serialize k, Serialize v) => Putter (LogEntry k v)
+putLogEntry MkLogEntry{logEntryKey, logEntryCount, logEntryOperation, logEntryValue}
+  = do put          logEntryKey
+       putWord64le  logEntryCount
+       putOperation logEntryOperation
+       put          logEntryValue
 
-getLogKey :: Get LogKey
-getLogKey = MkLogKey <$> getWord64le <*> getHash
+getLogEntry :: (Serialize k, Serialize v) => Get (LogEntry k v)
+getLogEntry
+  = MkLogEntry <$> get
+               <*> getWord64le
+               <*> getOperation
+               <*> get
 
-instance Serialize LogKey where
-  put = putLogKey
-  get = getLogKey
+instance (Serialize k, Serialize v) => Serialize (LogEntry k v) where
+  put = putLogEntry
+  get = getLogEntry
 
 data Operation = Insert | Delete
   deriving (Eq, Show)

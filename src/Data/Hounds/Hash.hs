@@ -1,6 +1,5 @@
 module Data.Hounds.Hash
-  ( Hash
-  , unHash
+  ( Hash(..)
   , mkHash
   , putHash
   , getHash

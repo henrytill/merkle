@@ -18,6 +18,7 @@ import           Test.Tasty.QuickCheck                (testProperty)
 
 import qualified Data.Hounds.Db                       as Db
 import qualified Data.Hounds.Hash                     as Hash
+import qualified Data.Hounds.Log                      as Log
 import           Data.Hounds.Orphans                  ()
 
 
@@ -78,6 +79,19 @@ onePutTwoDeletes ioenv = runInBoundThread $ do
   count <- takeMVar (Db.envTxnCount env)
   assertEqual "the transaction count did not equal 2" 2 count
 
+twoPutsFetchLog :: IO Db.Env -> Assertion
+twoPutsFetchLog ioenv = runInBoundThread $ do
+  let one      = C.pack "one"
+      two      = C.pack "two"
+      expected = [ (Log.MkLogKey 0 (Hash.mkHash one), Log.Insert)
+                 , (Log.MkLogKey 1 (Hash.mkHash two), Log.Insert)
+                 ]
+  env   <- ioenv
+  _     <- Db.loggedPut env one
+  _     <- Db.loggedPut env two
+  lg    <- Db.fetchLog  env (Log.MkRange 0 1)
+  assertEqual "the log did not contain the expected contents" expected lg
+
 -- * Setup
 
 initTempDb :: IO Db.Db
@@ -111,6 +125,9 @@ units =
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Db.envDb)
                  (testCase "one put, two deletes" . onePutTwoDeletes)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Db.envDb)
+                 (testCase "two puts, fetchLog" . twoPutsFetchLog)
   ]
 
 tests :: TestTree

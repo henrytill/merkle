@@ -97,10 +97,11 @@ put dbi txn kbs vbs
 -- * High-level API
 
 data Db = MkDb
-  { dbEnv       :: MDB_env
-  , dbDbiLeaves :: MDB_dbi
-  , dbDbiTrie   :: MDB_dbi
-  , dbDbiLog    :: MDB_dbi
+  { dbEnv            :: MDB_env
+  , dbDbiLeaves      :: MDB_dbi
+  , dbDbiTrie        :: MDB_dbi
+  , dbDbiLog         :: MDB_dbi
+  , dbDbiCheckpoints :: MDB_dbi
   }
 
 mkDb :: FilePath -> Int -> IO Db
@@ -111,14 +112,16 @@ mkDb dbDir mapSize = do
   mdb_env_set_maxdbs env 4
   mdb_env_open env dbDir []
   txn <- mdb_txn_begin env Nothing False
-  onException (do dbiLeaves <- mdb_dbi_open txn (Just "leaves") [MDB_CREATE]
-                  dbiTrie   <- mdb_dbi_open txn (Just "trie")   [MDB_CREATE]
-                  dbiLog    <- mdb_dbi_open txn (Just "log")    [MDB_CREATE]
+  onException (do dbiLeaves      <- mdb_dbi_open txn (Just "leaves")      [MDB_CREATE]
+                  dbiTrie        <- mdb_dbi_open txn (Just "trie")        [MDB_CREATE]
+                  dbiLog         <- mdb_dbi_open txn (Just "log")         [MDB_CREATE]
+                  dbiCheckpoints <- mdb_dbi_open txn (Just "checkpoints") [MDB_CREATE]
                   mdb_txn_commit txn
-                  return MkDb { dbEnv         = env
-                              , dbDbiLeaves   = dbiLeaves
-                              , dbDbiTrie     = dbiTrie
-                              , dbDbiLog      = dbiLog
+                  return MkDb { dbEnv            = env
+                              , dbDbiLeaves      = dbiLeaves
+                              , dbDbiTrie        = dbiTrie
+                              , dbDbiLog         = dbiLog
+                              , dbDbiCheckpoints = dbiCheckpoints
                               })
               (mdb_txn_abort txn)
 

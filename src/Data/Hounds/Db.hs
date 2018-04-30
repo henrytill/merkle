@@ -97,13 +97,12 @@ get :: (Serialize k, Serialize v)
 get txn dbi k
   = let
       (fptr, off, len) = BI.toForeignPtr (encode k)
+      de               = either (throwIO . SerializationException) pure . decode
     in
       withForeignPtr fptr $ \ ptr ->
       do ret <- mdb_get txn dbi (MDB_val (fromIntegral len) (ptr `plusPtr` off))
          bs  <- mapM mdbValToByteString ret
          mapM de bs
-    where
-      de = either (throwIO . SerializationException) pure . decode
 
 del :: Serialize k
     => MDB_txn

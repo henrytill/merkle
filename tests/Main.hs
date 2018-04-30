@@ -109,8 +109,8 @@ twoPutsFetchLog ioenv = runInBoundThread $ do
       val1     = C.pack "val"
       key2     = C.pack "two"
       val2     = C.pack "val"
-      expected = [ Log.MkLogEntry key1 0 Log.Insert val1
-                 , Log.MkLogEntry key2 1 Log.Insert val2
+      expected = [ Log.MkLogEntry 0 Log.Insert key1 val1
+                 , Log.MkLogEntry 1 Log.Insert key2 val2
                  ]
   env       <- ioenv
   _         <- Store.put env key1 val1
@@ -126,9 +126,9 @@ threePutsFetchLog ioenv = runInBoundThread $ do
       val2     = C.pack "val"
       key3     = C.pack "three"
       val3     = C.pack "val"
-      expected = [ Log.MkLogEntry key1 0 Log.Insert val1
-                 , Log.MkLogEntry key2 1 Log.Insert val2
-                 , Log.MkLogEntry key3 2 Log.Insert val3
+      expected = [ Log.MkLogEntry 0 Log.Insert key1 val1
+                 , Log.MkLogEntry 1 Log.Insert key2 val2
+                 , Log.MkLogEntry 2 Log.Insert key3 val3
                  ]
   env       <- ioenv
   _         <- Store.put env key1 val1

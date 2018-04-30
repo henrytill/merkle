@@ -24,7 +24,7 @@ put env k v = do
   currLog <- takeMVar currentLogVar
   onException (do succPut <- Db.put txn (Db.dbDbiStore db) k v
                   if succPut
-                    then do let logEntry = Log.MkLogEntry k count Log.Insert v
+                    then do let logEntry = Log.MkLogEntry count Log.Insert k v
                             putMVar countVar      (count + 1)
                             putMVar currentLogVar (logEntry : currLog)
                             mdb_txn_commit txn
@@ -56,7 +56,7 @@ del env k = do
                                   return False
                     Just v  -> do succDel <- Db.del txn (Db.dbDbiStore db) k
                                   if succDel
-                                    then do let logEntry = Log.MkLogEntry k count Log.Delete v
+                                    then do let logEntry = Log.MkLogEntry count Log.Delete k v
                                             putMVar countVar      (count + 1)
                                             putMVar currentLogVar (logEntry : currLog)
                                             mdb_txn_commit txn

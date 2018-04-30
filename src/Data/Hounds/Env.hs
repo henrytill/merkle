@@ -17,5 +17,8 @@ data Env k v = MkEnv
 mkEnv :: Db.Db -> IO (Env k v)
 mkEnv db = MkEnv db <$> newMVar 0 <*> newMVar []
 
+fetchCount :: Env k v -> IO (Maybe Word64)
+fetchCount = tryTakeMVar . envCount
+
 fetchLog :: (Serialize k, Serialize v) => Env k v -> IO (Maybe [Log.LogEntry k v])
 fetchLog = tryTakeMVar . envCurrentLog

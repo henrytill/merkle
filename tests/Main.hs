@@ -22,6 +22,7 @@ import qualified Data.Hounds.Db                       as Db
 import qualified Data.Hounds.Hash                     as Hash
 import qualified Data.Hounds.Log                      as Log
 import           Data.Hounds.Orphans                  ()
+import qualified Data.Hounds.PointerBlock             as PointerBlock
 import qualified Data.Hounds.Store                    as Store
 import qualified Data.Hounds.Trie                     as Trie
 
@@ -148,7 +149,7 @@ initTempDb = do
 
 initTempEnv :: (Serialize k, Serialize v) => IO (Context.Context k v)
 initTempEnv = do
-  let trie     = Trie.mkTrie
+  let trie     = Trie.mkTrie PointerBlock.mkPointerBlock
       rootHash = Trie.hashTrie trie
   tempDb  <- initTempDb
   context <- Context.mkContext tempDb rootHash

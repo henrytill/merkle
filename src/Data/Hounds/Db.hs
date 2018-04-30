@@ -31,7 +31,6 @@ instance Exception DbException
 data Db = MkDb
   { dbEnv            :: MDB_env
   , dbDbiStore       :: MDB_dbi
-  , dbDbiLog         :: MDB_dbi
   , dbDbiTrie        :: MDB_dbi
   , dbDbiCheckpoints :: MDB_dbi
   }
@@ -45,13 +44,11 @@ mkDb dbDir mapSize = do
   mdb_env_open env dbDir []
   txn <- mdb_txn_begin env Nothing False
   onException (do dbiStore       <- mdb_dbi_open txn (Just "trie")        [MDB_CREATE]
-                  dbiLog         <- mdb_dbi_open txn (Just "log")         [MDB_CREATE]
                   dbiTrie        <- mdb_dbi_open txn (Just "trie")        [MDB_CREATE]
                   dbiCheckpoints <- mdb_dbi_open txn (Just "checkpoints") [MDB_CREATE]
                   mdb_txn_commit txn
                   return MkDb { dbEnv            = env
                               , dbDbiStore       = dbiStore
-                              , dbDbiLog         = dbiLog
                               , dbDbiTrie        = dbiTrie
                               , dbDbiCheckpoints = dbiCheckpoints
                               })
@@ -61,7 +58,6 @@ close :: Db -> IO ()
 close db = do
   let env = dbEnv db
   mdb_dbi_close env (dbDbiStore       db)
-  mdb_dbi_close env (dbDbiLog         db)
   mdb_dbi_close env (dbDbiTrie        db)
   mdb_dbi_close env (dbDbiCheckpoints db)
   mdb_env_close env

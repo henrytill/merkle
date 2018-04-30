@@ -104,9 +104,9 @@ get txn dbi k
       withForeignPtr fptr $ \ ptr ->
       do ret <- mdb_get txn dbi (MDB_val (fromIntegral len) (ptr `plusPtr` off))
          bs  <- mapM mdbValToByteString ret
-         mapM f bs
+         mapM de bs
     where
-      f bs = either (throwIO . SerializationException) pure (decode bs)
+      de = either (throwIO . SerializationException) pure . decode
 
 del :: Serialize k
     => MDB_txn

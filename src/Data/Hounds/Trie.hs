@@ -91,7 +91,6 @@ inserter context k v sk depth (Node pb) dirtyParents
                          succPutNewNode <- store context newNodeHash newNode
                          unless succPutNewLeaf (throwIO InsertException)
                          unless succPutNewNode (throwIO InsertException)
-                         unless succPutNewLeaf (throwIO InsertException)
                          return (newNodeHash, dirtyParents)
 inserter context k v sk depth leaf@(Leaf lk _) dirtyParents
   = do let leafPos     = B.index (encode lk) (depth + 1)

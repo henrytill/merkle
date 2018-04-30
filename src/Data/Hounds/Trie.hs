@@ -7,7 +7,6 @@ import           Control.Monad            (unless)
 import           Data.Array
 import qualified Data.ByteString          as B
 import           Data.Serialize
-import           Data.Word                (Word8)
 import           Database.LMDB.Raw
 
 import qualified Data.Hounds.Context      as Context
@@ -22,8 +21,6 @@ data TrieException
   deriving Show
 
 instance Exception TrieException
-
-type Offset = Word8
 
 data Trie k v
   = Node PointerBlock

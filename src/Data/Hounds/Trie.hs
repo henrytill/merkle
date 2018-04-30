@@ -1,6 +1,6 @@
 module Data.Hounds.Trie where
 
-import           Control.Concurrent.MVar  (takeMVar, putMVar)
+import           Control.Concurrent.MVar  (putMVar, takeMVar)
 import           Control.Exception        (Exception, finally, onException,
                                            throwIO)
 import           Control.Monad            (unless)

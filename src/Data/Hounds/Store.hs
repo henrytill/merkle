@@ -5,20 +5,20 @@ import           Control.Exception       (finally, onException)
 import qualified Data.Serialize          as S
 import           Database.LMDB.Raw
 
+import qualified Data.Hounds.Context     as Context
 import qualified Data.Hounds.Db          as Db
-import qualified Data.Hounds.Env         as Env
 import qualified Data.Hounds.Log         as Log
 
 
 put :: (S.Serialize k, S.Serialize v)
-    => Env.Env k v
+    => Context.Context k v
     -> k
     -> v
     -> IO Bool
-put env k v = do
-  let db            = Env.envDb env
-      countVar      = Env.envCount env
-      currentLogVar = Env.envCurrentLog env
+put context k v = do
+  let db            = Context.contextDb         context
+      countVar      = Context.contextCount      context
+      currentLogVar = Context.contextCurrentLog context
   txn     <- mdb_txn_begin (Db.dbEnv db) Nothing False
   count   <- takeMVar countVar
   currLog <- takeMVar currentLogVar
@@ -38,13 +38,13 @@ put env k v = do
                   putMVar currentLogVar currLog)
 
 del :: (S.Serialize k, S.Serialize v)
-    => Env.Env k v
+    => Context.Context k v
     -> k
     -> IO Bool
-del env k = do
-  let db            = Env.envDb env
-      countVar      = Env.envCount env
-      currentLogVar = Env.envCurrentLog env
+del context k = do
+  let db            = Context.contextDb         context
+      countVar      = Context.contextCount      context
+      currentLogVar = Context.contextCurrentLog context
   txn     <- mdb_txn_begin (Db.dbEnv db) Nothing False
   count   <- takeMVar countVar
   currLog <- takeMVar currentLogVar
@@ -70,10 +70,10 @@ del env k = do
                   putMVar currentLogVar currLog)
 
 get :: (S.Serialize k, S.Serialize v)
-    => Env.Env k v
+    => Context.Context k v
     -> k
     -> IO (Maybe v)
-get env k = do
-  let db = Env.envDb env
+get context k = do
+  let db = Context.contextDb context
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   finally (Db.get txn (Db.dbDbiStore db) k) (mdb_txn_abort txn)

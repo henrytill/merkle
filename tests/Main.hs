@@ -17,8 +17,8 @@ import           Test.Tasty                           (TestTree, defaultMain,
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck                (testProperty)
 
+import qualified Data.Hounds.Context                  as Context
 import qualified Data.Hounds.Db                       as Db
-import qualified Data.Hounds.Env                      as Env
 import qualified Data.Hounds.Hash                     as Hash
 import qualified Data.Hounds.Log                      as Log
 import           Data.Hounds.Orphans                  ()
@@ -49,63 +49,63 @@ prop_roundTripDb iodb = M.monadicIO $ do
 
 -- * Unit Tests
 
-putGet :: IO (Env.Env B.ByteString B.ByteString) -> Assertion
-putGet ioenv = runInBoundThread $ do
+putGet :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+putGet ioContext = runInBoundThread $ do
   let key = C.pack "one"
       val = C.pack "val"
-  env        <- ioenv
-  _          <- Store.put env key val
-  (Just ret) <- Store.get env key
+  context    <- ioContext
+  _          <- Store.put context key val
+  (Just ret) <- Store.get context key
   assertEqual "round" val ret
 
-twoPuts :: IO (Env.Env B.ByteString B.ByteString) -> Assertion
-twoPuts ioenv = runInBoundThread $ do
+twoPuts :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+twoPuts ioContext = runInBoundThread $ do
   let key1 = C.pack "one"
       val1 = C.pack "val"
       key2 = C.pack "two"
       val2 = C.pack "val"
-  env   <- ioenv
-  _     <- Store.put env key1 val1
-  _     <- Store.put env key2 val2
-  count <- takeMVar (Env.envCount env)
+  context <- ioContext
+  _       <- Store.put context key1 val1
+  _       <- Store.put context key2 val2
+  count   <- takeMVar (Context.contextCount context)
   assertEqual "the transaction count did not equal 2" 2 count
 
-duplicatePuts :: IO (Env.Env B.ByteString B.ByteString) -> Assertion
-duplicatePuts ioenv = runInBoundThread $ do
+duplicatePuts :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+duplicatePuts ioContext = runInBoundThread $ do
   let key = C.pack "one"
       val = C.pack "val"
-  env   <- ioenv
-  _     <- Store.put env key val
-  _     <- Store.put env key val
-  count <- takeMVar (Env.envCount env)
+  context <- ioContext
+  _       <- Store.put context key val
+  _       <- Store.put context key val
+  count   <- takeMVar (Context.contextCount context)
   assertEqual "the transaction count did not equal 1" 1 count
 
-twoPutsOneDelete :: IO (Env.Env B.ByteString B.ByteString) -> Assertion
-twoPutsOneDelete ioenv = runInBoundThread $ do
+twoPutsOneDelete :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+twoPutsOneDelete ioContext = runInBoundThread $ do
   let key1 = C.pack "one"
       val1 = C.pack "val"
       key2 = C.pack "two"
       val2 = C.pack "val"
-  env   <- ioenv
-  _     <- Store.put env key1 val1
-  _     <- Store.put env key2 val2
-  _     <- Store.del env key1
-  count <- takeMVar (Env.envCount env)
+  context <- ioContext
+  _       <- Store.put context key1 val1
+  _       <- Store.put context key2 val2
+  _       <- Store.del context key1
+  count   <- takeMVar (Context.contextCount context)
   assertEqual "the transaction count did not equal 3" 3 count
 
-onePutTwoDeletes :: IO (Env.Env B.ByteString B.ByteString) -> Assertion
-onePutTwoDeletes ioenv = runInBoundThread $ do
+onePutTwoDeletes :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+onePutTwoDeletes ioContext = runInBoundThread $ do
   let key = C.pack "one"
       val = C.pack "val"
-  env   <- ioenv
-  _     <- Store.put env key val
-  _     <- Store.del env key
-  _     <- Store.del env key
-  count <- takeMVar (Env.envCount env)
+  context <- ioContext
+  _       <- Store.put context key val
+  _       <- Store.del context key
+  _       <- Store.del context key
+  count   <- takeMVar (Context.contextCount context)
   assertEqual "the transaction count did not equal 2" 2 count
 
-twoPutsFetchLog :: IO (Env.Env B.ByteString B.ByteString) -> Assertion
-twoPutsFetchLog ioenv = runInBoundThread $ do
+twoPutsFetchLog :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+twoPutsFetchLog ioContext = runInBoundThread $ do
   let key1     = C.pack "one"
       val1     = C.pack "val"
       key2     = C.pack "two"
@@ -113,14 +113,14 @@ twoPutsFetchLog ioenv = runInBoundThread $ do
       expected = [ Log.MkLogEntry 0 Log.Insert key1 val1
                  , Log.MkLogEntry 1 Log.Insert key2 val2
                  ]
-  env       <- ioenv
-  _         <- Store.put env key1 val1
-  _         <- Store.put env key2 val2
-  (Just lg) <- Env.fetchLog env
+  context   <- ioContext
+  _         <- Store.put context key1 val1
+  _         <- Store.put context key2 val2
+  (Just lg) <- Context.fetchLog context
   assertEqual "the log did not contain the expected contents" expected (reverse lg)
 
-threePutsFetchLog :: IO (Env.Env B.ByteString B.ByteString) -> Assertion
-threePutsFetchLog ioenv = runInBoundThread $ do
+threePutsFetchLog :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+threePutsFetchLog ioContext = runInBoundThread $ do
   let key1     = C.pack "one"
       val1     = C.pack "val"
       key2     = C.pack "two"
@@ -131,11 +131,11 @@ threePutsFetchLog ioenv = runInBoundThread $ do
                  , Log.MkLogEntry 1 Log.Insert key2 val2
                  , Log.MkLogEntry 2 Log.Insert key3 val3
                  ]
-  env       <- ioenv
-  _         <- Store.put env key1 val1
-  _         <- Store.put env key2 val2
-  _         <- Store.put env key3 val3
-  (Just lg) <- Env.fetchLog env
+  context   <- ioContext
+  _         <- Store.put context key1 val1
+  _         <- Store.put context key2 val2
+  _         <- Store.put context key3 val3
+  (Just lg) <- Context.fetchLog context
   assertEqual "the log did not contain the expected contents" expected (reverse lg)
 
 -- * Setup
@@ -146,15 +146,15 @@ initTempDb = do
   path <- createTempDirectory dir "hounds-"
   Db.mkDb path (1024 * 1024 * 128)
 
-initTempEnv :: (Serialize k, Serialize v) => IO (Env.Env k v)
+initTempEnv :: (Serialize k, Serialize v) => IO (Context.Context k v)
 initTempEnv = do
   let trie     = Trie.mkTrie
       rootHash = Trie.hashTrie trie
   tempDb  <- initTempDb
-  env     <- Env.mkEnv tempDb rootHash
-  succPut <- Trie.store env rootHash trie
+  context <- Context.mkContext tempDb rootHash
+  succPut <- Trie.store context rootHash trie
   if succPut
-    then return env
+    then return context
     else throwIO Db.PutException
 
 props :: [TestTree]
@@ -168,25 +168,25 @@ props =
 units :: [TestTree]
 units =
   [ withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Env.envDb)
+                 (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "put get" . putGet)
   , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Env.envDb)
+                 (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "two puts" . twoPuts)
   , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Env.envDb)
+                 (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "duplicate puts" . duplicatePuts)
   , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Env.envDb)
+                 (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "two puts, one delete" . twoPutsOneDelete)
   , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Env.envDb)
+                 (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "one put, two deletes" . onePutTwoDeletes)
   , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Env.envDb)
+                 (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "two puts, fetchLog" . twoPutsFetchLog)
   , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Env.envDb)
+                 (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "three puts, fetchLog" . threePutsFetchLog)
   ]
 

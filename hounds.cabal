@@ -18,7 +18,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Data.Hounds
                      , Data.Hounds.Db
-                     , Data.Hounds.Env
+                     , Data.Hounds.Context
                      , Data.Hounds.Hash
                      , Data.Hounds.Log
                      , Data.Hounds.PointerBlock

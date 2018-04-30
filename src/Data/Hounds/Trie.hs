@@ -6,8 +6,8 @@ import           Data.Serialize
 import           Data.Word                (Word8)
 import           Database.LMDB.Raw
 
+import qualified Data.Hounds.Context      as Context
 import qualified Data.Hounds.Db           as Db
-import qualified Data.Hounds.Env          as Env
 import           Data.Hounds.Hash
 import           Data.Hounds.PointerBlock
 
@@ -42,21 +42,21 @@ hashTrie :: (Serialize k, Serialize v) => Trie k v -> Hash
 hashTrie (Node pb)  = mkHash (encode pb)
 hashTrie (Leaf k v) = mkHash (B.append (encode k) (encode v))
 
-store :: (Serialize k, Serialize v) => Env.Env k v -> Hash -> Trie k v -> IO Bool
-store env hash trie = do
-  let db = Env.envDb env
+store :: (Serialize k, Serialize v) => Context.Context k v -> Hash -> Trie k v -> IO Bool
+store context hash trie = do
+  let db = Context.contextDb context
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException (do succPut <- Db.put txn (Db.dbDbiTrie db) hash trie
                   mdb_txn_commit txn
                   return succPut)
               (mdb_txn_abort txn)
 
-fetch :: (Serialize k, Serialize v) => Env.Env k v -> Hash -> IO (Maybe (Trie k v))
-fetch env hash = do
-  let db = Env.envDb env
+fetch :: (Serialize k, Serialize v) => Context.Context k v -> Hash -> IO (Maybe (Trie k v))
+fetch context hash = do
+  let db = Context.contextDb context
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   finally (Db.get txn (Db.dbDbiTrie db) hash)
           (mdb_txn_abort txn)
 
-insert :: (Serialize k, Serialize v) => Env.Env k v -> k -> v -> IO ()
+insert :: (Serialize k, Serialize v) => Context.Context k v -> k -> v -> IO ()
 insert = undefined

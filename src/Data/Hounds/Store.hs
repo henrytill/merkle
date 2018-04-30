@@ -16,9 +16,9 @@ put :: (S.Serialize k, S.Serialize v)
     -> v
     -> IO Bool
 put context k v = do
-  let db            = Context.contextDb         context
-      countVar      = Context.contextCount      context
-      currentLogVar = Context.contextCurrentLog context
+  let db            = Context.contextDb    context
+      countVar      = Context.contextCount context
+      currentLogVar = Context.contextLog   context
   txn     <- mdb_txn_begin (Db.dbEnv db) Nothing False
   count   <- takeMVar countVar
   currLog <- takeMVar currentLogVar
@@ -42,9 +42,9 @@ del :: (S.Serialize k, S.Serialize v)
     -> k
     -> IO Bool
 del context k = do
-  let db            = Context.contextDb         context
-      countVar      = Context.contextCount      context
-      currentLogVar = Context.contextCurrentLog context
+  let db            = Context.contextDb    context
+      countVar      = Context.contextCount context
+      currentLogVar = Context.contextLog   context
   txn     <- mdb_txn_begin (Db.dbEnv db) Nothing False
   count   <- takeMVar countVar
   currLog <- takeMVar currentLogVar

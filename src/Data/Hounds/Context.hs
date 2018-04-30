@@ -12,7 +12,7 @@ import qualified Data.Hounds.Log         as Log
 data Context k v = MkContext
   { contextDb          :: Db.Db
   , contextCount       :: MVar Word64
-  , contextCurrentLog  :: MVar [Log.LogEntry k v]
+  , contextLog         :: MVar [Log.LogEntry k v]
   , contextWorkingRoot :: MVar Hash.Hash
   }
 
@@ -26,4 +26,4 @@ fetchCount :: Context k v -> IO (Maybe Word64)
 fetchCount = tryTakeMVar . contextCount
 
 fetchLog :: (Serialize k, Serialize v) => Context k v -> IO (Maybe [Log.LogEntry k v])
-fetchLog = tryTakeMVar . contextCurrentLog
+fetchLog = tryTakeMVar . contextLog

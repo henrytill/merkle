@@ -2,7 +2,7 @@ module Main (main) where
 
 import           Control.Concurrent                   (runInBoundThread)
 import           Control.Concurrent.MVar              (takeMVar)
-import           Control.Exception                    (onException)
+import           Control.Exception                    (onException, throwIO)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Char8                as C
 import           Data.Serialize                       (Serialize, decode,
@@ -23,6 +23,7 @@ import qualified Data.Hounds.Hash                     as Hash
 import qualified Data.Hounds.Log                      as Log
 import           Data.Hounds.Orphans                  ()
 import qualified Data.Hounds.Store                    as Store
+import qualified Data.Hounds.Trie                     as Trie
 
 
 -- * Property Tests
@@ -146,7 +147,15 @@ initTempDb = do
   Db.mkDb path (1024 * 1024 * 128)
 
 initTempEnv :: (Serialize k, Serialize v) => IO (Env.Env k v)
-initTempEnv = Env.mkEnv =<< initTempDb
+initTempEnv = do
+  let trie     = Trie.mkTrie
+      rootHash = Trie.hashTrie trie
+  tempDb  <- initTempDb
+  env     <- Env.mkEnv tempDb rootHash
+  succPut <- Trie.store env rootHash trie
+  if succPut
+    then return env
+    else throwIO Db.PutException
 
 props :: [TestTree]
 props =

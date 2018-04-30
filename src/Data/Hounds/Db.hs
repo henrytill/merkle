@@ -1,7 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Data.Hounds.Db
-  ( Db(..)
+  ( DbException(..)
+  , Db(..)
   , mkDb
   , close
   , put

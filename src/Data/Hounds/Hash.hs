@@ -1,8 +1,6 @@
 module Data.Hounds.Hash
   ( Hash(..)
   , mkHash
-  , putHash
-  , getHash
   ) where
 
 import qualified Crypto.Hash.BLAKE2.BLAKE2b as BLAKE2b

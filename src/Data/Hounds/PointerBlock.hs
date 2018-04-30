@@ -2,9 +2,6 @@ module Data.Hounds.PointerBlock
   ( PointerBlock(..)
   , mkPointerBlock
   , update
-  , putPointerBlock
-  , getPointerBlock
-  , hashPointerBlock
   ) where
 
 import           Data.Array       (Array, listArray, (//))
@@ -21,10 +18,10 @@ mkPointerBlock :: PointerBlock
 mkPointerBlock = MkPointerBlock (listArray (0, 255) (replicate 256 Nothing))
 
 putPointerBlock :: Putter PointerBlock
-putPointerBlock = putIArrayOf putWord8 (putMaybeOf putHash) . unPointerBlock
+putPointerBlock = putIArrayOf putWord8 (putMaybeOf put) . unPointerBlock
 
 getPointerBlock :: Get PointerBlock
-getPointerBlock = MkPointerBlock <$> getIArrayOf getWord8 (getMaybeOf getHash)
+getPointerBlock = MkPointerBlock <$> getIArrayOf getWord8 (getMaybeOf get)
 
 instance Serialize PointerBlock where
   put = putPointerBlock
@@ -32,6 +29,3 @@ instance Serialize PointerBlock where
 
 update :: PointerBlock -> [(Word8, Maybe Hash)] -> PointerBlock
 update (MkPointerBlock arr) indexedHashes = MkPointerBlock (arr // indexedHashes)
-
-hashPointerBlock :: PointerBlock -> Hash
-hashPointerBlock = mkHash . encode

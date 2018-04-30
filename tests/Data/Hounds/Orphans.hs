@@ -18,4 +18,4 @@ instance Arbitrary PointerBlock where
   arbitrary = MkPointerBlock <$> resize 256 arbitrary
 
 instance (Arbitrary k, Arbitrary v) => Arbitrary (Trie k v) where
-  arbitrary = oneof [Node <$> arbitrary, Leaf <$> arbitrary <*> arbitrary <*> arbitrary]
+  arbitrary = oneof [Node <$> arbitrary, Leaf <$> arbitrary <*> arbitrary]

@@ -1,6 +1,6 @@
 module Data.Hounds.Trie where
 
-import           Control.Exception        (onException)
+import           Control.Exception        (finally, onException)
 import qualified Data.ByteString          as B
 import           Data.Serialize
 import           Data.Word                (Word8)
@@ -50,6 +50,13 @@ store env hash trie = do
                   mdb_txn_commit txn
                   return succPut)
               (mdb_txn_abort txn)
+
+fetch :: (Serialize k, Serialize v) => Env.Env k v -> Hash -> IO (Maybe (Trie k v))
+fetch env hash = do
+  let db = Env.envDb env
+  txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
+  finally (Db.get txn (Db.dbDbiTrie db) hash)
+          (mdb_txn_abort txn)
 
 insert :: (Serialize k, Serialize v) => Env.Env k v -> k -> v -> IO ()
 insert = undefined

@@ -20,9 +20,9 @@ import           Data.Hounds.PointerBlock
 
 
 data TrieException
-  = InsertException
+  = InsertException String
+  | LookupException String
   | RehashException
-  | InvariantViolationException String
   deriving Show
 
 instance Exception TrieException
@@ -88,7 +88,7 @@ lookup context k = do
                Nothing   -> return Nothing
                Just hash -> do maybeNode <- Db.get txn dbi hash
                                case maybeNode of
-                                 Nothing   -> throwIO (InvariantViolationException "how did we get here")
+                                 Nothing   -> throwIO (LookupException "no node at hash")
                                  Just next -> go txn dbi (depth + 1) next
       go _ _ _ (Leaf lk lv)
         = if k == lk
@@ -102,21 +102,22 @@ insert context k v = do
       dbiTrie        = Db.dbDbiTrie db
   rootHash <- takeMVar currentRootVar
   txn      <- mdb_txn_begin (Db.dbEnv db) Nothing False
-  onException (do (Just currRoot) <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
+  onException (do currRoot <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
                   case currRoot of
-                    Leaf _ _ -> throwIO (InvariantViolationException "root must be a Node")
-                    node     -> do succPutNewLeaf <- Db.put txn dbiTrie newLeafHash newLeaf
-                                   unless succPutNewLeaf (throwIO InsertException)
-                                   putStrLn ""
-                                   putStrLn ("key:          " ++ show (B.unpack (encode k)))
-                                   (newNode, dirtyParents) <- inserter txn dbiTrie 0 node (B.head path, Just rootHash) []
-                                   putStrLn ("newNode:      " ++ show newNode)
-                                   putStrLn ("dirtyParents: " ++ show dirtyParents)
-                                   newRoot <- rehash txn dbiTrie newNode dirtyParents
-                                   putStrLn ("newRoot:      " ++ show newRoot)
-                                   mdb_txn_commit txn
-                                   putMVar currentRootVar newRoot
-                                   return ())
+                    Nothing         -> throwIO (InsertException "root must exist")
+                    Just (Leaf _ _) -> throwIO (InsertException "root must be a Node")
+                    Just node       -> do succPutNewLeaf <- Db.put txn dbiTrie newLeafHash newLeaf
+                                          unless succPutNewLeaf (throwIO (InsertException "persisting newLeaf failed"))
+                                          -- putStrLn ""
+                                          -- putStrLn ("key:          " ++ show (B.unpack (encode k)))
+                                          (newNode, dirtyParents) <- inserter txn dbiTrie 0 node (B.head path, Just rootHash) []
+                                          -- putStrLn ("newNode:      " ++ show newNode)
+                                          -- putStrLn ("dirtyParents: " ++ show dirtyParents)
+                                          newRoot <- rehash txn dbiTrie newNode dirtyParents
+                                          -- putStrLn ("newRoot:      " ++ show newRoot)
+                                          mdb_txn_commit txn
+                                          putMVar currentRootVar newRoot
+                                          return ())
               (do mdb_txn_abort txn
                   putMVar currentRootVar rootHash)
     where
@@ -138,15 +139,18 @@ insert context k v = do
                -> IO (Hash, [(Word8, Maybe Hash)])
       inserter txn dbi offset (Node pb) parent@(byte, _) dirtyParents
         = case unPointerBlock pb ! byte of
-            Just nextHash -> do (Just next) <- Db.get txn dbi nextHash
-                                let nextOffset = offset + 1
-                                    nextByte   = B.index path nextOffset
-                                putStrLn ("inserter (Node): " ++ show nextOffset)
-                                inserter txn dbi nextOffset next (nextByte, Just nextHash) (parent:dirtyParents)
+            Just nextHash -> do maybeNext <- Db.get txn dbi nextHash
+                                case maybeNext of
+                                  Nothing   -> throwIO (InsertException "(inserter) value at nextHash must exist")
+                                  Just next -> let
+                                                 nextOffset = offset + 1
+                                                 nextByte   = B.index path nextOffset
+                                               in
+                                                 inserter txn dbi nextOffset next (nextByte, Just nextHash) (parent:dirtyParents)
             Nothing       -> do let newNode     = Node (update pb [(byte, Just newLeafHash)]) :: Trie k v
                                     newNodeHash = hashTrie newNode
                                 succPutNewNode <- Db.put txn dbi newNodeHash newNode
-                                unless succPutNewNode (throwIO InsertException)
+                                unless succPutNewNode (throwIO (InsertException "(inserter) persisting newNode failed"))
                                 return (newNodeHash, dirtyParents)
       inserter txn dbi offset leaf@(Leaf lk _) parent@(byte, maybeCurrLeafHash) dirtyParents
         = let
@@ -158,7 +162,7 @@ insert context k v = do
               else do let newNode     = Node (update mkPointerBlock [(currLeafNextByte, maybeCurrLeafHash), (newLeafByte, Just newLeafHash)]) :: Trie k v
                           newNodeHash = hashTrie newNode
                       succPutNewNode <- Db.put txn dbi newNodeHash newNode
-                      unless succPutNewNode (throwIO InsertException)
+                      unless succPutNewNode (throwIO (InsertException "(inserter) persisting newNode failed"))
                       return (newNodeHash, dirtyParents)
 
       rehash :: MDB_txn

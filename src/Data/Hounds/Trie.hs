@@ -1,12 +1,16 @@
+{-# OPTIONS_GHC -Wno-unused-local-binds #-}
+{-# OPTIONS_GHC -Wno-unused-matches     #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+
 module Data.Hounds.Trie where
 
 import           Control.Concurrent.MVar  (putMVar, takeMVar)
-import           Control.Exception        (Exception, finally, onException,
-                                           throwIO)
+import           Control.Exception        (Exception, finally, onException, throwIO)
 import           Control.Monad            (unless)
 import           Data.Array
 import qualified Data.ByteString          as B
 import           Data.Serialize
+import           Data.Word                (Word8)
 import           Database.LMDB.Raw
 
 import qualified Data.Hounds.Context      as Context
@@ -17,6 +21,7 @@ import           Data.Hounds.PointerBlock
 
 data TrieException
   = InsertException
+  | RehashException
   | InvariantViolationException String
   deriving Show
 
@@ -58,63 +63,121 @@ store context hash trie = do
                   return succPut)
               (mdb_txn_abort txn)
 
-fetch :: (Serialize k, Serialize v) => Context.Context k v -> Hash -> IO (Maybe (Trie k v))
-fetch context hash = do
-  let db = Context.contextDb context
-  txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
-  finally (Db.get txn (Db.dbDbiTrie db) hash)
-          (mdb_txn_abort txn)
+lookup :: forall k v. (Eq k, Serialize k, Serialize v) => Context.Context k v -> k -> IO (Maybe v)
+lookup context k = do
+  let db             = Context.contextDb context
+      currentRootVar = Context.contextWorkingRoot context
+      dbiTrie        = Db.dbDbiTrie db
+  rootHash <- takeMVar currentRootVar
+  txn      <- mdb_txn_begin (Db.dbEnv db) Nothing True
+  finally (do currRoot <- Db.get txn dbiTrie rootHash
+              case currRoot of
+                Just root -> go txn dbiTrie 0 root
+                Nothing   -> return Nothing)
+          (do mdb_txn_abort txn
+              putMVar currentRootVar rootHash)
+    where
+      path :: B.ByteString
+      path = encode k
 
-rehash :: (Serialize k, Serialize v) => Context.Context k v -> Hash -> [Hash] -> IO Hash
-rehash = undefined
+      go :: MDB_txn -> MDB_dbi -> Int -> Trie k v -> IO (Maybe v)
+      go txn dbi depth (Node pb)
+        = do let pos       = B.index path depth
+                 maybeHash = unPointerBlock pb ! pos
+             case maybeHash of
+               Nothing   -> return Nothing
+               Just hash -> do maybeNode <- Db.get txn dbi hash
+                               case maybeNode of
+                                 Nothing   -> throwIO (InvariantViolationException "how did we get here")
+                                 Just next -> go txn dbi (depth + 1) next
+      go _ _ _ (Leaf lk lv)
+        = if k == lk
+            then return (Just lv)
+            else return Nothing
 
-inserter :: (Serialize k, Serialize v)
-         => Context.Context k v
-         -> k
-         -> v
-         -> B.ByteString
-         -> Int
-         -> Trie k v
-         -> [Hash]
-         -> IO (Hash, [Hash])
-inserter context k v sk depth (Node pb) dirtyParents
-  = do let pos       = B.index sk depth
-           maybeHash = unPointerBlock pb ! pos
-       case maybeHash of
-         Just hash -> do (Just next) <- fetch context hash
-                         inserter context k v sk (depth + 1) next (hash:dirtyParents)
-         Nothing   -> do let newLeaf     = Leaf k v
-                             newLeafHash = hashTrie newLeaf
-                             newNode     = mkTrie (update mkPointerBlock [(pos, Just newLeafHash)])
-                             newNodeHash = hashTrie newNode
-                         succPutNewLeaf <- store context newLeafHash newLeaf
-                         succPutNewNode <- store context newNodeHash newNode
-                         unless succPutNewLeaf (throwIO InsertException)
-                         unless succPutNewNode (throwIO InsertException)
-                         return (newNodeHash, dirtyParents)
-inserter context k v sk depth leaf@(Leaf lk _) dirtyParents
-  = do let leafPos     = B.index (encode lk) (depth + 1)
-           leafHash    = hashTrie leaf
-           newLeaf     = Leaf k v
-           newLeafPos  = B.index sk (depth + 1)
-           newLeafHash = hashTrie newLeaf
-           newNode     = mkTrie (update mkPointerBlock [(leafPos, Just leafHash), (newLeafPos, Just newLeafHash)])
-           newNodeHash = hashTrie newNode
-       succPutNewLeaf <- store context newLeafHash newLeaf
-       succPutNewNode <- store context newNodeHash newNode
-       unless succPutNewLeaf (throwIO InsertException)
-       unless succPutNewNode (throwIO InsertException)
-       return (newNodeHash, dirtyParents)
-
-insert :: (Serialize k, Serialize v) => Context.Context k v -> k -> v -> IO ()
+insert :: forall k v. (Serialize k, Serialize v) => Context.Context k v -> k -> v -> IO ()
 insert context k v = do
-  let currentRootVar = Context.contextWorkingRoot context
-  hash            <- takeMVar currentRootVar
-  (Just currRoot) <- fetch context hash
-  case currRoot of
-    Leaf _ _ -> throwIO (InvariantViolationException "root must be a Node")
-    node     -> onException (do (newNode, path) <- inserter context k v (encode k) 0 node []
-                                newRoot         <- rehash context newNode path
-                                putMVar currentRootVar newRoot
-                                return ())
-                            (putMVar currentRootVar hash)
+  let db             = Context.contextDb context
+      currentRootVar = Context.contextWorkingRoot context
+      dbiTrie        = Db.dbDbiTrie db
+  rootHash <- takeMVar currentRootVar
+  txn      <- mdb_txn_begin (Db.dbEnv db) Nothing False
+  onException (do (Just currRoot) <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
+                  case currRoot of
+                    Leaf _ _ -> throwIO (InvariantViolationException "root must be a Node")
+                    node     -> do succPutNewLeaf <- Db.put txn dbiTrie newLeafHash newLeaf
+                                   unless succPutNewLeaf (throwIO InsertException)
+                                   putStrLn ""
+                                   putStrLn ("key:          " ++ show (B.unpack (encode k)))
+                                   (newNode, dirtyParents) <- inserter txn dbiTrie 0 node (B.head path, Just rootHash) []
+                                   putStrLn ("newNode:      " ++ show newNode)
+                                   putStrLn ("dirtyParents: " ++ show dirtyParents)
+                                   newRoot <- rehash txn dbiTrie newNode dirtyParents
+                                   putStrLn ("newRoot:      " ++ show newRoot)
+                                   mdb_txn_commit txn
+                                   putMVar currentRootVar newRoot
+                                   return ())
+              (do mdb_txn_abort txn
+                  putMVar currentRootVar rootHash)
+    where
+      path :: B.ByteString
+      path = encode k
+
+      newLeaf :: Trie k v
+      newLeaf = Leaf k v
+
+      newLeafHash :: Hash
+      newLeafHash = hashTrie newLeaf
+
+      inserter :: MDB_txn
+               -> MDB_dbi
+               -> Int
+               -> Trie k v
+               -> (Word8, Maybe Hash)
+               -> [(Word8, Maybe Hash)]
+               -> IO (Hash, [(Word8, Maybe Hash)])
+      inserter txn dbi offset (Node pb) parent@(byte, _) dirtyParents
+        = case unPointerBlock pb ! byte of
+            Just nextHash -> do (Just next) <- Db.get txn dbi nextHash
+                                let nextOffset = offset + 1
+                                    nextByte   = B.index path nextOffset
+                                putStrLn ("inserter (Node): " ++ show nextOffset)
+                                inserter txn dbi nextOffset next (nextByte, Just nextHash) (parent:dirtyParents)
+            Nothing       -> do let newNode     = Node (update pb [(byte, Just newLeafHash)]) :: Trie k v
+                                    newNodeHash = hashTrie newNode
+                                succPutNewNode <- Db.put txn dbi newNodeHash newNode
+                                unless succPutNewNode (throwIO InsertException)
+                                return (newNodeHash, dirtyParents)
+      inserter txn dbi offset leaf@(Leaf lk _) parent@(byte, maybeCurrLeafHash) dirtyParents
+        = let
+            newLeafByte      = B.index path offset
+            currLeafNextByte = B.index (encode lk) offset
+          in
+            if currLeafNextByte == newLeafByte
+              then inserter txn dbi (offset + 1) leaf parent ((currLeafNextByte, Nothing):dirtyParents)
+              else do let newNode     = Node (update mkPointerBlock [(currLeafNextByte, maybeCurrLeafHash), (newLeafByte, Just newLeafHash)]) :: Trie k v
+                          newNodeHash = hashTrie newNode
+                      succPutNewNode <- Db.put txn dbi newNodeHash newNode
+                      unless succPutNewNode (throwIO InsertException)
+                      return (newNodeHash, dirtyParents)
+
+      rehash :: MDB_txn
+             -> MDB_dbi
+             -> Hash
+             -> [(Word8, Maybe Hash)]
+             -> IO Hash
+      rehash _ _ newHash []
+        = return newHash
+      rehash txn dbi newHash ((byte, Just oldHash):parents)
+        = do (Just (Node pb)) <- Db.get txn dbi oldHash :: IO (Maybe (Trie k v))
+             let updatedNode     = Node (update pb [(byte, Just newHash)]) :: Trie k v
+                 updatedNodeHash = hashTrie updatedNode
+             succPut <- Db.put txn dbi updatedNodeHash updatedNode
+             unless succPut (throwIO RehashException)
+             rehash txn dbi updatedNodeHash parents
+      rehash txn dbi newHash ((byte, Nothing):parents)
+        = do let updatedNode     = Node (update mkPointerBlock [(byte, Just newHash)]) :: Trie k v
+                 updatedNodeHash = hashTrie updatedNode
+             succPut <- Db.put txn dbi updatedNodeHash updatedNode
+             unless succPut (throwIO RehashException)
+             rehash txn dbi updatedNodeHash parents

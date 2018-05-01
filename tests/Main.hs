@@ -5,15 +5,13 @@ import           Control.Concurrent.MVar              (takeMVar)
 import           Control.Exception                    (onException, throwIO)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Char8                as C
-import           Data.Serialize                       (Serialize, decode,
-                                                       encode)
+import           Data.Serialize
 import           Database.LMDB.Raw
 import           System.IO.Temp                       (createTempDirectory, getCanonicalTemporaryDirectory)
 import           Test.QuickCheck                      (Property, arbitrary)
 import           Test.QuickCheck.Instances.ByteString ()
 import qualified Test.QuickCheck.Monadic              as M
-import           Test.Tasty                           (TestTree, defaultMain,
-                                                       testGroup, withResource)
+import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck                (testProperty)
 
@@ -24,6 +22,7 @@ import qualified Data.Hounds.Log                      as Log
 import           Data.Hounds.Orphans                  ()
 import qualified Data.Hounds.PointerBlock             as PointerBlock
 import qualified Data.Hounds.Store                    as Store
+import qualified Data.Hounds.TestKey                  as TestKey
 import qualified Data.Hounds.Trie                     as Trie
 
 
@@ -50,43 +49,47 @@ prop_roundTripDb iodb = M.monadicIO $ do
 
 -- * Unit Tests
 
-putGet :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
-putGet ioContext = runInBoundThread $ do
-  let key = C.pack "one"
-      val = C.pack "val"
-  context    <- ioContext
-  _          <- Store.put context key val
-  (Just ret) <- Store.get context key
-  assertEqual "round" val ret
+key1, key2, key3, key4, key5 :: TestKey.TestKey
+key1 = TestKey.mkTestKey [1, 0, 0, 0]
+key2 = TestKey.mkTestKey [1, 0, 0, 1]
+key3 = TestKey.mkTestKey [1, 0, 1, 0]
+key4 = TestKey.mkTestKey [1, 0, 1, 1]
+key5 = TestKey.mkTestKey [1, 0, 2, 1]
 
-twoPuts :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+val1, val2, val3, val4, val5 :: B.ByteString
+val1 = C.pack "value1"
+val2 = C.pack "value2"
+val3 = C.pack "value3"
+val4 = C.pack "value4"
+val5 = C.pack "value5"
+
+type TestContext = Context.Context TestKey.TestKey B.ByteString
+
+putGet :: IO TestContext -> Assertion
+putGet ioContext = runInBoundThread $ do
+  context    <- ioContext
+  _          <- Store.put context key1 val1
+  (Just ret) <- Store.get context key1
+  assertEqual "round" val1 ret
+
+twoPuts :: IO TestContext -> Assertion
 twoPuts ioContext = runInBoundThread $ do
-  let key1 = C.pack "one"
-      val1 = C.pack "val"
-      key2 = C.pack "two"
-      val2 = C.pack "val"
   context <- ioContext
   _       <- Store.put context key1 val1
   _       <- Store.put context key2 val2
   count   <- takeMVar (Context.contextCount context)
   assertEqual "the transaction count did not equal 2" 2 count
 
-duplicatePuts :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+duplicatePuts :: IO TestContext -> Assertion
 duplicatePuts ioContext = runInBoundThread $ do
-  let key = C.pack "one"
-      val = C.pack "val"
   context <- ioContext
-  _       <- Store.put context key val
-  _       <- Store.put context key val
+  _       <- Store.put context key1 val1
+  _       <- Store.put context key1 val1
   count   <- takeMVar (Context.contextCount context)
   assertEqual "the transaction count did not equal 1" 1 count
 
-twoPutsOneDelete :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+twoPutsOneDelete :: IO TestContext -> Assertion
 twoPutsOneDelete ioContext = runInBoundThread $ do
-  let key1 = C.pack "one"
-      val1 = C.pack "val"
-      key2 = C.pack "two"
-      val2 = C.pack "val"
   context <- ioContext
   _       <- Store.put context key1 val1
   _       <- Store.put context key2 val2
@@ -94,24 +97,18 @@ twoPutsOneDelete ioContext = runInBoundThread $ do
   count   <- takeMVar (Context.contextCount context)
   assertEqual "the transaction count did not equal 3" 3 count
 
-onePutTwoDeletes :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+onePutTwoDeletes :: IO TestContext -> Assertion
 onePutTwoDeletes ioContext = runInBoundThread $ do
-  let key = C.pack "one"
-      val = C.pack "val"
   context <- ioContext
-  _       <- Store.put context key val
-  _       <- Store.del context key
-  _       <- Store.del context key
+  _       <- Store.put context key1 val1
+  _       <- Store.del context key1
+  _       <- Store.del context key1
   count   <- takeMVar (Context.contextCount context)
   assertEqual "the transaction count did not equal 2" 2 count
 
-twoPutsFetchLog :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
+twoPutsFetchLog :: IO TestContext -> Assertion
 twoPutsFetchLog ioContext = runInBoundThread $ do
-  let key1     = C.pack "one"
-      val1     = C.pack "val"
-      key2     = C.pack "two"
-      val2     = C.pack "val"
-      expected = [ Log.MkLogEntry 0 Log.Insert key1 val1
+  let expected = [ Log.MkLogEntry 0 Log.Insert key1 val1
                  , Log.MkLogEntry 1 Log.Insert key2 val2
                  ]
   context   <- ioContext
@@ -120,24 +117,85 @@ twoPutsFetchLog ioContext = runInBoundThread $ do
   (Just lg) <- Context.fetchLog context
   assertEqual "the log did not contain the expected contents" expected (reverse lg)
 
-threePutsFetchLog :: IO (Context.Context B.ByteString B.ByteString) -> Assertion
-threePutsFetchLog ioContext = runInBoundThread $ do
-  let key1     = C.pack "one"
-      val1     = C.pack "val"
-      key2     = C.pack "two"
-      val2     = C.pack "val"
-      key3     = C.pack "three"
-      val3     = C.pack "val"
-      expected = [ Log.MkLogEntry 0 Log.Insert key1 val1
+fourPutsFetchLog :: IO TestContext -> Assertion
+fourPutsFetchLog ioContext = runInBoundThread $ do
+  let expected = [ Log.MkLogEntry 0 Log.Insert key1 val1
                  , Log.MkLogEntry 1 Log.Insert key2 val2
                  , Log.MkLogEntry 2 Log.Insert key3 val3
+                 , Log.MkLogEntry 3 Log.Insert key4 val4
                  ]
   context   <- ioContext
   _         <- Store.put context key1 val1
   _         <- Store.put context key2 val2
   _         <- Store.put context key3 val3
+  _         <- Store.put context key4 val4
   (Just lg) <- Context.fetchLog context
   assertEqual "the log did not contain the expected contents" expected (reverse lg)
+
+insertLookupTest :: IO TestContext -> Assertion
+insertLookupTest ioContext = runInBoundThread $ do
+  context <- ioContext
+  _       <- Trie.insert context key1 val1
+  ret1    <- Trie.lookup context key1
+  assertEqual "returned value did not equal inserted value" (Just val1) ret1
+
+twoInsertsTwoLookupsTest :: IO TestContext -> Assertion
+twoInsertsTwoLookupsTest ioContext = runInBoundThread $ do
+  context <- ioContext
+  _       <- Trie.insert context key1 val1
+  _       <- Trie.insert context key2 val2
+  ret1    <- Trie.lookup context key1
+  ret2    <- Trie.lookup context key2
+  assertEqual "first returned value did not equal inserted value"  (Just val1) ret1
+  assertEqual "second returned value did not equal inserted value" (Just val2) ret2
+
+threeInsertsThreeLookupsTest :: IO TestContext -> Assertion
+threeInsertsThreeLookupsTest ioContext = runInBoundThread $ do
+  context <- ioContext
+  _       <- Trie.insert context key1 val1
+  _       <- Trie.insert context key2 val2
+  _       <- Trie.insert context key3 val3
+  ret1    <- Trie.lookup context key1
+  ret2    <- Trie.lookup context key2
+  ret3    <- Trie.lookup context key3
+  assertEqual "first returned value did not equal inserted value"  (Just val1) ret1
+  assertEqual "second returned value did not equal inserted value" (Just val2) ret2
+  assertEqual "third returned value did not equal inserted value"  (Just val3) ret3
+
+fourInsertsFourLookupsTest :: IO TestContext -> Assertion
+fourInsertsFourLookupsTest ioContext = runInBoundThread $ do
+  context <- ioContext
+  _       <- Trie.insert context key1 val1
+  _       <- Trie.insert context key2 val2
+  _       <- Trie.insert context key3 val3
+  _       <- Trie.insert context key4 val4
+  ret1    <- Trie.lookup context key1
+  ret2    <- Trie.lookup context key2
+  ret3    <- Trie.lookup context key3
+  ret4    <- Trie.lookup context key4
+  assertEqual "first returned value did not equal inserted value"  (Just val1) ret1
+  assertEqual "second returned value did not equal inserted value" (Just val2) ret2
+  assertEqual "third returned value did not equal inserted value"  (Just val3) ret3
+  assertEqual "fourth returned value did not equal inserted value" (Just val4) ret4
+
+fiveInsertsFiveLookupsTest :: IO TestContext -> Assertion
+fiveInsertsFiveLookupsTest ioContext = runInBoundThread $ do
+  context <- ioContext
+  _       <- Trie.insert context key1 val1
+  _       <- Trie.insert context key2 val2
+  _       <- Trie.insert context key3 val3
+  _       <- Trie.insert context key4 val4
+  _       <- Trie.insert context key5 val5
+  ret1    <- Trie.lookup context key1
+  ret2    <- Trie.lookup context key2
+  ret3    <- Trie.lookup context key3
+  ret4    <- Trie.lookup context key4
+  ret5    <- Trie.lookup context key5
+  assertEqual "first returned value did not equal inserted value"  (Just val1) ret1
+  assertEqual "second returned value did not equal inserted value" (Just val2) ret2
+  assertEqual "third returned value did not equal inserted value"  (Just val3) ret3
+  assertEqual "fourth returned value did not equal inserted value" (Just val4) ret4
+  assertEqual "fifth returned value did not equal inserted value"  (Just val5) ret5
 
 -- * Setup
 
@@ -188,7 +246,22 @@ units =
                  (testCase "two puts, fetchLog" . twoPutsFetchLog)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "three puts, fetchLog" . threePutsFetchLog)
+                 (testCase "four puts, fetchLog" . fourPutsFetchLog)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Context.contextDb)
+                 (testCase "insert, lookup" . insertLookupTest)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Context.contextDb)
+                 (testCase "two inserts, two lookups" . twoInsertsTwoLookupsTest)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Context.contextDb)
+                 (testCase "three inserts, three lookups" . threeInsertsThreeLookupsTest)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Context.contextDb)
+                 (testCase "four inserts, four lookups" . fourInsertsFourLookupsTest)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Context.contextDb)
+                 (testCase "five inserts, five lookups" . fiveInsertsFiveLookupsTest)
   ]
 
 tests :: TestTree

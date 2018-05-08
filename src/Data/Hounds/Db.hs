@@ -30,37 +30,33 @@ data DbException
 instance Exception DbException
 
 data Db = MkDb
-  { dbEnv            :: MDB_env
-  , dbDbiStore       :: MDB_dbi
-  , dbDbiTrie        :: MDB_dbi
-  , dbDbiCheckpoints :: MDB_dbi
+  { dbEnv      :: MDB_env
+  , dbDbiStore :: MDB_dbi
+  , dbDbiTrie  :: MDB_dbi
   }
 
 mkDb :: FilePath -> Int -> IO Db
 mkDb dbDir mapSize = do
   env <- mdb_env_create
   mdb_env_set_mapsize env mapSize
-  mdb_env_set_maxreaders env 4
-  mdb_env_set_maxdbs env 4
+  mdb_env_set_maxreaders env 126
+  mdb_env_set_maxdbs env 2
   mdb_env_open env dbDir []
   txn <- mdb_txn_begin env Nothing False
-  onException (do dbiStore       <- mdb_dbi_open txn (Just "trie")        [MDB_CREATE]
-                  dbiTrie        <- mdb_dbi_open txn (Just "trie")        [MDB_CREATE]
-                  dbiCheckpoints <- mdb_dbi_open txn (Just "checkpoints") [MDB_CREATE]
+  onException (do dbiStore <- mdb_dbi_open txn (Just "store") [MDB_CREATE]
+                  dbiTrie  <- mdb_dbi_open txn (Just "trie")  [MDB_CREATE]
                   mdb_txn_commit txn
-                  return MkDb { dbEnv            = env
-                              , dbDbiStore       = dbiStore
-                              , dbDbiTrie        = dbiTrie
-                              , dbDbiCheckpoints = dbiCheckpoints
+                  return MkDb { dbEnv      = env
+                              , dbDbiStore = dbiStore
+                              , dbDbiTrie  = dbiTrie
                               })
               (mdb_txn_abort txn)
 
 close :: Db -> IO ()
 close db = do
   let env = dbEnv db
-  mdb_dbi_close env (dbDbiStore       db)
-  mdb_dbi_close env (dbDbiTrie        db)
-  mdb_dbi_close env (dbDbiCheckpoints db)
+  mdb_dbi_close env (dbDbiStore db)
+  mdb_dbi_close env (dbDbiTrie  db)
   mdb_env_close env
 
 writeFlags :: MDB_WriteFlags

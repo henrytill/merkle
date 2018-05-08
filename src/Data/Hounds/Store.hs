@@ -1,13 +1,17 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Data.Hounds.Store where
 
-import           Control.Concurrent.MVar (putMVar, takeMVar)
+import           Control.Concurrent.MVar (putMVar, readMVar, takeMVar)
 import           Control.Exception       (finally, onException)
 import qualified Data.Serialize          as S
 import           Database.LMDB.Raw
 
 import qualified Data.Hounds.Context     as Context
 import qualified Data.Hounds.Db          as Db
+import qualified Data.Hounds.Hash        as Hash
 import qualified Data.Hounds.Log         as Log
+import qualified Data.Hounds.Trie        as Trie
 
 
 put :: (S.Serialize k, S.Serialize v)
@@ -77,3 +81,18 @@ get context k = do
   let db = Context.contextDb context
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   finally (Db.get txn (Db.dbDbiStore db) k) (mdb_txn_abort txn)
+
+checkpoint :: forall k v. (S.Serialize k, S.Serialize v)
+           => Context.Context k v
+           -> IO Hash.Hash
+checkpoint context = do
+  let logVar         = Context.contextLog context
+      workingRootVar = Context.contextWorkingRoot context
+  logEntries <- takeMVar logVar
+  mapM_ operate logEntries
+  putMVar logVar []
+  readMVar workingRootVar
+    where
+      operate :: Log.LogEntry k v -> IO ()
+      operate (Log.MkLogEntry _ Log.Insert key value) = Trie.insert context key value
+      operate (Log.MkLogEntry _ Log.Delete key _)     = Trie.delete context key

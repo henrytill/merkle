@@ -185,3 +185,6 @@ insert context k v = do
              succPut <- Db.put txn dbi updatedNodeHash updatedNode
              unless succPut (throwIO RehashException)
              rehash txn dbi updatedNodeHash parents
+
+delete :: forall k v. (Serialize k, Serialize v) => Context.Context k v -> k -> IO ()
+delete = undefined

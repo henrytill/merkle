@@ -8,7 +8,7 @@ import           Test.QuickCheck.Instances.ByteString ()
 
 import           Data.Hounds.Hash
 import           Data.Hounds.PointerBlock
-import           Data.Hounds.TestKey
+import           Data.Hounds.Test
 import           Data.Hounds.Trie
 
 

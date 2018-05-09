@@ -1,10 +1,13 @@
-module Data.Hounds.PointerBlock.Properties where
+module Data.Hounds.PointerBlock.Properties (pointerBlockProperties) where
 
 
 import           Data.Map.Strict          (Map, toList)
 import           Data.Word                (Word8)
+import           Test.Tasty
+import           Test.Tasty.QuickCheck    (testProperty)
 
 import           Data.Hounds.Hash
+import           Data.Hounds.Orphans      ()
 import           Data.Hounds.PointerBlock
 
 
@@ -14,3 +17,6 @@ prop_getChildren children = getChildren pb == childrenList
     childrenList = toList children
     f (i, h)     = (i, Just h)
     pb           = update mkPointerBlock (fmap f childrenList)
+
+pointerBlockProperties :: [TestTree]
+pointerBlockProperties = [ testProperty "getChildren" prop_getChildren ]

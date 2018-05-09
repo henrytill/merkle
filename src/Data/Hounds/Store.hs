@@ -82,7 +82,7 @@ get context k = do
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   finally (Db.get txn (Db.dbDbiStore db) k) (mdb_txn_abort txn)
 
-checkpoint :: forall k v. (S.Serialize k, S.Serialize v)
+checkpoint :: forall k v. (S.Serialize k, S.Serialize v, Eq k, Eq v)
            => Context.Context k v
            -> IO Hash.Hash
 checkpoint context = do
@@ -95,4 +95,4 @@ checkpoint context = do
     where
       operate :: Log.LogEntry k v -> IO ()
       operate (Log.MkLogEntry _ Log.Insert key value) = Trie.insert context key value
-      operate (Log.MkLogEntry _ Log.Delete key _)     = Trie.delete context key
+      operate (Log.MkLogEntry _ Log.Delete key value) = Trie.delete context key value

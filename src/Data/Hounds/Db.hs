@@ -8,9 +8,12 @@ module Data.Hounds.Db
   , put
   , get
   , del
+  , putOrThrow
+  , getOrThrow
   ) where
 
 import           Control.Exception        (Exception, onException, throwIO)
+import           Control.Monad            (unless)
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Internal as BI
 import           Data.Serialize           (Serialize, decode, encode)
@@ -111,3 +114,21 @@ del txn dbi k
     in
       withForeignPtr fptr $ \ ptr ->
       mdb_del txn dbi (MDB_val (fromIntegral len) (ptr `plusPtr` off)) Nothing
+
+getOrThrow :: (Serialize k, Serialize v, Exception e)
+           => MDB_txn
+           -> MDB_dbi
+           -> k
+           -> e
+           -> IO v
+getOrThrow txn dbi k e = get txn dbi k >>= maybe (throwIO e) return
+
+putOrThrow :: (Serialize k, Serialize v, Exception e)
+           => MDB_txn
+           -> MDB_dbi
+           -> k
+           -> v
+           -> e
+           -> IO ()
+putOrThrow txn dbi k v e = put txn dbi k v >>= flip unless (throwIO e)
+

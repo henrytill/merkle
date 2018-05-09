@@ -8,7 +8,7 @@ import qualified Data.ByteString.Char8                as C
 import           Data.Serialize
 import           Database.LMDB.Raw
 import           System.IO.Temp                       (createTempDirectory, getCanonicalTemporaryDirectory)
-import           Test.QuickCheck                      (Property, arbitrary)
+import           Test.QuickCheck                      (Arbitrary, Property, arbitrary)
 import           Test.QuickCheck.Instances.ByteString ()
 import qualified Test.QuickCheck.Monadic              as M
 import           Test.Tasty
@@ -28,7 +28,7 @@ import qualified Data.Hounds.Trie                     as Trie
 
 -- * Property Tests
 
-prop_roundTrip :: Bool -> Bool
+prop_roundTrip :: (Arbitrary a, Eq a, Serialize a) => a -> Bool
 prop_roundTrip t = decode (encode t) == Right t
 
 prop_roundTripDb :: IO Db.Db -> Property
@@ -218,7 +218,7 @@ initTempEnv = do
 
 props :: [TestTree]
 props =
-  [ testProperty "Round trip Tree serialization" prop_roundTrip
+  [ testProperty "Round trip Tree serialization" (prop_roundTrip :: Trie.Trie TestKey.TestKey B.ByteString -> Bool)
   , withResource (runInBoundThread initTempDb)
                  (runInBoundThread . Db.close)
                  (testProperty "Round trip leaves to db" . prop_roundTripDb)

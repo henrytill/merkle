@@ -8,6 +8,7 @@ import           Test.QuickCheck.Instances.ByteString ()
 
 import           Data.Hounds.Hash
 import           Data.Hounds.PointerBlock
+import           Data.Hounds.TestKey
 import           Data.Hounds.Trie
 
 
@@ -19,3 +20,6 @@ instance Arbitrary PointerBlock where
 
 instance (Arbitrary k, Arbitrary v) => Arbitrary (Trie k v) where
   arbitrary = oneof [Node <$> arbitrary, Leaf <$> arbitrary <*> arbitrary]
+
+instance Arbitrary TestKey where
+  arbitrary = mkTestKey <$> vectorOf 4 arbitrary

@@ -21,6 +21,7 @@ import qualified Data.Hounds.Hash                     as Hash
 import qualified Data.Hounds.Log                      as Log
 import           Data.Hounds.Orphans                  ()
 import qualified Data.Hounds.PointerBlock             as PointerBlock
+import           Data.Hounds.PointerBlock.Properties
 import qualified Data.Hounds.Store                    as Store
 import qualified Data.Hounds.TestKey                  as TestKey
 import qualified Data.Hounds.Trie                     as Trie
@@ -218,7 +219,9 @@ initTempEnv = do
 
 props :: [TestTree]
 props =
-  [ testProperty "Round trip Tree serialization" (prop_roundTrip :: Trie.Trie TestKey.TestKey B.ByteString -> Bool)
+  [ testProperty "getChildren" prop_getChildren
+  , testProperty "Round trip Tree serialization"
+                 (prop_roundTrip :: Trie.Trie TestKey.TestKey B.ByteString -> Bool)
   , withResource (runInBoundThread initTempDb)
                  (runInBoundThread . Db.close)
                  (testProperty "Round trip leaves to db" . prop_roundTripDb)

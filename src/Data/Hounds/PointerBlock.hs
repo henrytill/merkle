@@ -2,9 +2,13 @@ module Data.Hounds.PointerBlock
   ( PointerBlock(..)
   , mkPointerBlock
   , update
+  , getChildren
   ) where
 
-import           Data.Array       (Array, listArray, (//))
+import           Control.Monad    (guard)
+import           Data.Array       (Array, Ix, bounds, listArray, range, (!),
+                                   (//))
+import           Data.Maybe       (fromJust, isJust)
 import           Data.Serialize
 import           Data.Word        (Word8)
 
@@ -29,3 +33,14 @@ instance Serialize PointerBlock where
 
 update :: PointerBlock -> [(Word8, Maybe Hash)] -> PointerBlock
 update (MkPointerBlock arr) indexedHashes = MkPointerBlock (arr // indexedHashes)
+
+-- compare to [(i, fromJust x) | i <- range (bounds arr), let x = arr ! i, isJust x]
+asshocs :: Ix i => Array i (Maybe a) -> [(i, a)]
+asshocs arr = do
+  i <- range (bounds arr)
+  let x = arr ! i
+  guard (isJust x)
+  return (i, fromJust x)
+
+getChildren :: PointerBlock -> [(Word8, Hash)]
+getChildren = asshocs . unPointerBlock

@@ -11,7 +11,7 @@ import           Data.Serialize
 
 
 newtype Hash = MkHash { unHash :: B.ByteString }
-  deriving Eq
+  deriving (Eq, Ord)
 
 instance Show Hash where
   show (MkHash bs) = "<" ++ C.unpack (Base16.encode bs) ++ ">"

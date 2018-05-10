@@ -116,14 +116,12 @@ rehash fant txn dbi newHash ((byte, Just oldHash):parents)
   = do (Just (Node pb)) <- Db.get txn dbi oldHash :: IO (Maybe (Trie k v))
        let updatedNode :: Trie k v = Node (update pb [(byte, Just newHash)])
            updatedNodeHash         = hashTrie updatedNode
-       succPut <- Db.put txn dbi updatedNodeHash updatedNode
-       unless succPut (throwIO RehashException)
+       Db.putOrThrow txn dbi updatedNodeHash updatedNode RehashException
        rehash fant txn dbi updatedNodeHash parents
 rehash fant txn dbi newHash ((byte, Nothing):parents)
   = do let updatedNode :: Trie k v = Node (update mkPointerBlock [(byte, Just newHash)])
            updatedNodeHash         = hashTrie updatedNode
-       succPut <- Db.put txn dbi updatedNodeHash updatedNode
-       unless succPut (throwIO RehashException)
+       Db.putOrThrow txn dbi updatedNodeHash updatedNode RehashException
        rehash fant txn dbi updatedNodeHash parents
 
 insert :: forall k v. (Serialize k, Serialize v) => Context.Context k v -> k -> v -> IO ()
@@ -137,8 +135,7 @@ insert context k v = do
                   case currRoot of
                     Nothing         -> throwIO (InsertException "root must exist")
                     Just (Leaf _ _) -> throwIO (InsertException "root must be a Node")
-                    Just node       -> do succPutNewLeaf <- Db.put txn dbiTrie newLeafHash newLeaf
-                                          unless succPutNewLeaf (throwIO (InsertException "persisting newLeaf failed"))
+                    Just node       -> do Db.putOrThrow txn dbiTrie newLeafHash newLeaf (InsertException "persisting newLeaf failed")
                                           -- putStrLn ""
                                           -- putStrLn ("key:          " ++ show (B.unpack (encode k)))
                                           (newNode, dirtyParents) <- inserter txn dbiTrie 0 node (B.head path, Just rootHash) []
@@ -180,8 +177,7 @@ insert context k v = do
                                                  inserter txn dbi nextOffset next (nextByte, Just nextHash) (parent:dirtyParents)
             Nothing       -> do let newNode     = Node (update pb [(byte, Just newLeafHash)]) :: Trie k v
                                     newNodeHash = hashTrie newNode
-                                succPutNewNode <- Db.put txn dbi newNodeHash newNode
-                                unless succPutNewNode (throwIO (InsertException "(inserter) persisting newNode failed"))
+                                Db.putOrThrow txn dbi newNodeHash newNode (InsertException "(inserter) persisting newNode failed")
                                 return (newNodeHash, dirtyParents)
       inserter txn dbi offset leaf@(Leaf lk _) parent@(_, maybeCurrLeafHash) dirtyParents
         = let
@@ -192,8 +188,7 @@ insert context k v = do
               then inserter txn dbi (offset + 1) leaf parent ((currLeafNextByte, Nothing):dirtyParents)
               else do let newNode     = Node (update mkPointerBlock [(currLeafNextByte, maybeCurrLeafHash), (newLeafByte, Just newLeafHash)]) :: Trie k v
                           newNodeHash = hashTrie newNode
-                      succPutNewNode <- Db.put txn dbi newNodeHash newNode
-                      unless succPutNewNode (throwIO (InsertException "(inserter) persisting newNode failed"))
+                      Db.putOrThrow txn dbi newNodeHash newNode (InsertException "(inserter) persisting newNode failed")
                       return (newNodeHash, dirtyParents)
 
 getParents :: forall k v. (Serialize k, Serialize v)

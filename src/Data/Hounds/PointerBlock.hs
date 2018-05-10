@@ -32,7 +32,7 @@ instance Serialize PointerBlock where
   get = getPointerBlock
 
 update :: PointerBlock -> [(Word8, Maybe Hash)] -> PointerBlock
-update (MkPointerBlock arr) indexedHashes = MkPointerBlock (arr // indexedHashes)
+update (MkPointerBlock arr) as = MkPointerBlock (arr // as)
 
 -- compare to [(i, fromJust x) | i <- range (bounds arr), let x = arr ! i, isJust x]
 asshocs :: Ix i => Array i (Maybe a) -> [(i, a)]

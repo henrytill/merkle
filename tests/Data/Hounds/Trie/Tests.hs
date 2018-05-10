@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+{-# OPTIONS_GHC -Wno-unused-matches   #-}
+
 module Data.Hounds.Trie.Tests (trieTests) where
 
 import           Control.Concurrent  (runInBoundThread)
@@ -75,15 +78,45 @@ fiveInsertsFiveLookupsTest ioContext = runInBoundThread $ do
   assertEqual "fourth returned value did not equal inserted value" (Just val4) ret4
   assertEqual "fifth returned value did not equal inserted value"  (Just val5) ret5
 
-insertLookupDeleteTest :: IO TestContext -> Assertion
-insertLookupDeleteTest ioContext = runInBoundThread $ do
-  context <- ioContext
-  _       <- Trie.insert context key1 val1
-  ret1    <- Trie.lookup context key1
-  _       <- Trie.delete context key1 val1
-  ret2    <- Trie.lookup context key1
-  assertEqual "returned value did not equal inserted value" (Just val1) ret1
-  assertEqual "returned value was not Nothing"              Nothing     ret2
+insertLookupDeleteLookupTest :: IO TestContext -> Assertion
+insertLookupDeleteLookupTest ioContext = runInBoundThread $ do
+  context     <- ioContext
+  initialRoot <- Context.fetchWorkingRoot context
+  _           <- Trie.insert context key1 val1
+  ret1        <- Trie.lookup context key1
+  _           <- Trie.delete context key1 val1
+  finalRoot   <- Context.fetchWorkingRoot context
+  ret2        <- Trie.lookup context key1
+  assertEqual "returned value did not equal inserted value"     (Just val1) ret1
+  assertEqual "final root hash did not equal initial root hash" initialRoot finalRoot
+  assertEqual "returned value was not Nothing"                  Nothing     ret2
+
+insertInsertDeleteDeleteTest :: IO TestContext -> Assertion
+insertInsertDeleteDeleteTest ioContext = runInBoundThread $ do
+  context     <- ioContext
+  root0       <- Context.fetchWorkingRoot context
+  _           <- Trie.insert context key1 val1
+  root1       <- Context.fetchWorkingRoot context
+  _           <- Trie.insert context key2 val2
+  root2       <- Context.fetchWorkingRoot context
+  ret1        <- Trie.lookup context key1
+  ret2        <- Trie.lookup context key2
+  assertEqual "returned value 1 did not equal inserted value" (Just val1) ret1
+  assertEqual "returned value 2 did not equal inserted value" (Just val2) ret2
+  _           <- Trie.delete context key2 val2
+  root3       <- Context.fetchWorkingRoot context
+  assertEqual "root 3 did not equal root 1" root1 root3
+  ret3        <- Trie.lookup context key1
+  ret4        <- Trie.lookup context key2
+  assertEqual "returned value 3 did not equal inserted value" (Just val1) ret3
+  assertEqual "returned value 4 was not Nothing"              Nothing     ret4
+  _           <- Trie.delete context key1 val1
+  root4       <- Context.fetchWorkingRoot context
+  assertEqual "root 4 did not equal root 0"                   root0       root4
+  ret5        <- Trie.lookup context key1
+  ret6        <- Trie.lookup context key2
+  assertEqual "returned value 5 was not Nothing"              Nothing     ret5
+  assertEqual "returned value 6 was not Nothing"              Nothing     ret4
 
 trieTests :: [TestTree]
 trieTests =
@@ -104,5 +137,8 @@ trieTests =
                  (testCase "five inserts, five lookups" . fiveInsertsFiveLookupsTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert, lookup, delete" . insertLookupDeleteTest)
+                 (testCase "insert, lookup, delete" . insertLookupDeleteLookupTest)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Context.contextDb)
+                 (testCase "insert, insert, lookup, lookup, delete, lookup, lookup, delete, lookup, lookup" . insertInsertDeleteDeleteTest)
   ]

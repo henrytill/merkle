@@ -58,10 +58,10 @@ twoPutsFetchLog ioContext = runInBoundThread $ do
   let expected = [ Log.MkLogEntry 0 Log.Insert key1 val1
                  , Log.MkLogEntry 1 Log.Insert key2 val2
                  ]
-  context   <- ioContext
-  _         <- Store.put context key1 val1
-  _         <- Store.put context key2 val2
-  (Just lg) <- Context.fetchLog context
+  context <- ioContext
+  _       <- Store.put context key1 val1
+  _       <- Store.put context key2 val2
+  lg      <- Context.fetchLog context
   assertEqual "the log did not contain the expected contents" expected (reverse lg)
 
 fourPutsFetchLog :: IO TestContext -> Assertion
@@ -71,12 +71,12 @@ fourPutsFetchLog ioContext = runInBoundThread $ do
                  , Log.MkLogEntry 2 Log.Insert key3 val3
                  , Log.MkLogEntry 3 Log.Insert key4 val4
                  ]
-  context   <- ioContext
-  _         <- Store.put context key1 val1
-  _         <- Store.put context key2 val2
-  _         <- Store.put context key3 val3
-  _         <- Store.put context key4 val4
-  (Just lg) <- Context.fetchLog context
+  context <- ioContext
+  _       <- Store.put context key1 val1
+  _       <- Store.put context key2 val2
+  _       <- Store.put context key3 val3
+  _       <- Store.put context key4 val4
+  lg      <- Context.fetchLog context
   assertEqual "the log did not contain the expected contents" expected (reverse lg)
 
 storeTests :: [TestTree]

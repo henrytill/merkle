@@ -1,6 +1,6 @@
 module Data.Hounds.Context where
 
-import           Control.Concurrent.MVar (MVar, newMVar, tryTakeMVar)
+import           Control.Concurrent.MVar (MVar, newMVar, readMVar)
 import           Data.Serialize
 import           Data.Word               (Word64)
 
@@ -22,8 +22,11 @@ mkContext db hash
                  <*> newMVar []
                  <*> newMVar hash
 
-fetchCount :: Context k v -> IO (Maybe Word64)
-fetchCount = tryTakeMVar . contextCount
+fetchCount :: Context k v -> IO Word64
+fetchCount = readMVar . contextCount
 
-fetchLog :: (Serialize k, Serialize v) => Context k v -> IO (Maybe [Log.LogEntry k v])
-fetchLog = tryTakeMVar . contextLog
+fetchLog :: (Serialize k, Serialize v) => Context k v -> IO [Log.LogEntry k v]
+fetchLog = readMVar . contextLog
+
+fetchWorkingRoot :: Context k v -> IO Hash.Hash
+fetchWorkingRoot = readMVar . contextWorkingRoot

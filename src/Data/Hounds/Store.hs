@@ -73,7 +73,7 @@ del context k = do
                   putMVar countVar      count
                   putMVar currentLogVar currLog)
 
-get :: (S.Serialize k, S.Serialize v)
+get :: forall k v. (S.Serialize k, S.Serialize v)
     => Context.Context k v
     -> k
     -> IO (Maybe v)
@@ -82,7 +82,7 @@ get context k = do
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   finally (Db.get txn (Db.dbDbiStore db) k) (mdb_txn_abort txn)
 
-checkpoint :: forall k v. (S.Serialize k, S.Serialize v, Eq k, Eq v)
+checkpoint :: forall k v. (S.Serialize k, S.Serialize v, Eq k, Eq v, Show k, Show v)
            => Context.Context k v
            -> IO Hash.Hash
 checkpoint context = do

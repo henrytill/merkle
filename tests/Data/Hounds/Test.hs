@@ -38,7 +38,10 @@ data TestKeyException
 instance Exception TestKeyException
 
 newtype TestKey = MkTestKey { unTestKey :: B.ByteString }
-  deriving (Eq, Show)
+  deriving Eq
+
+instance Show TestKey where
+  show (MkTestKey bs) = "TestKey " ++ show (B.unpack bs)
 
 putTestKey :: Putter TestKey
 putTestKey (MkTestKey bs) = putByteString bs

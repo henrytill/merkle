@@ -33,7 +33,7 @@ duplicatePuts ioContext = runInBoundThread $ do
   _       <- Store.put context key1 val1
   _       <- Store.put context key1 val1
   count   <- takeMVar (Context.contextCount context)
-  assertEqual "the transaction count did not equal 1" 1 count
+  assertEqual "the transaction count did not equal 2" 2 count
 
 twoPutsOneDelete :: IO TestContext -> Assertion
 twoPutsOneDelete ioContext = runInBoundThread $ do

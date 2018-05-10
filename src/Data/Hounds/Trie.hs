@@ -7,9 +7,6 @@ import           Control.Exception        (Exception, finally, onException, thro
 import           Control.Monad            (foldM, unless)
 import           Data.Array
 import qualified Data.ByteString          as B
-import           Data.Foldable            (fold)
-import           Data.Maybe               (isNothing)
-import           Data.Monoid              (First (..))
 import           Data.Proxy               (Proxy (..))
 import           Data.Serialize
 import           Data.Word                (Word8)
@@ -191,42 +188,38 @@ insert context k v = do
                       Db.putOrThrow txn dbi newNodeHash newNode (InsertException "(inserter) persisting newNode failed")
                       return (newNodeHash, dirtyParents)
 
+-- getParents :: forall k v. (Serialize k, Serialize v)
+--            => MDB_txn
+--            -> MDB_dbi
+--            -> Hash                       -- ^ root hash
+--            -> k                          -- ^ key
+--            -> IO (Trie k v, [(Word8, Hash, Trie k v)])
+-- getParents txn dbi rootHash k = do
+--   Just root <- Db.get txn dbi rootHash
+--   loop 0 root rootHash []
+--     where
+--       path :: B.ByteString
+--       path = encode k
+--
 getParents :: forall k v. (Serialize k, Serialize v)
-           => Proxy (k, v)
-           -> MDB_txn
-           -> MDB_dbi
-           -> Hash                       -- ^ root hash
-           -> k                          -- ^ key
-           -> IO (Trie k v, [(Word8, Hash, Trie k v)])
-getParents _ txn dbi rootHash k = do
-  Just root <- Db.get txn dbi rootHash
-  loop 0 root rootHash []
-    where
-      path :: B.ByteString
-      path = encode k
-
-      loop :: Int
-           -> Trie k v
-           -> Hash
-           -> [(Word8, Hash, Trie k v)]
-           -> IO (Trie k v, [(Word8, Hash, Trie k v)])
-      loop offset n@(Node pb) currHash acc
-        = let
-            byte = B.index path offset
-          in
-            case unPointerBlock pb ! byte of
-              Just nextHash -> do next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
-                                  loop (offset + 1) next nextHash ((byte, currHash, n):acc)
-              Nothing       -> return (n, acc)
-      loop _ leaf _ acc
-        = return (leaf, acc)
-
-hasOnlyChild :: Word8 -> Trie k v -> Bool
-hasOnlyChild _   (Leaf _ _) = False
-hasOnlyChild idx (Node pb)  = (isNothing . getFirst . fold . fmap First) updatedPointerBlockArray
-  where
-    updatedPointerBlockArray :: Array Word8 (Maybe Hash)
-    updatedPointerBlockArray = unPointerBlock pb // [(idx, Nothing)]
+     => MDB_txn
+     -> MDB_dbi
+     -> B.ByteString
+     -> Int
+     -> Trie k v
+     -> Hash
+     -> [(Word8, Hash, Trie k v)]
+     -> IO (Trie k v, [(Word8, Hash, Trie k v)])
+getParents txn dbi path offset n@(Node pb) currHash acc
+  = let
+      byte = B.index path offset
+    in
+      case unPointerBlock pb ! byte of
+        Just nextHash -> do next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
+                            getParents txn dbi path (offset + 1) next nextHash ((byte, currHash, n):acc)
+        Nothing       -> return (n, acc)
+getParents _ _ _ _ leaf _ acc
+  = return (leaf, acc)
 
 delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
 delete context k v = do
@@ -235,25 +228,50 @@ delete context k v = do
       dbiTrie        = Db.dbDbiTrie db
   rootHash <- takeMVar currentRootVar
   txn      <- mdb_txn_begin (Db.dbEnv db) Nothing False
-  onException (do (trie, dirtyParents) <- getParents (Proxy :: Proxy (k, v)) txn dbiTrie rootHash k
-                  unless (trie == expectedLeaf) (throwIO (DeleteException "(delete) couldn't find expectedLeaf"))
-                  (_, newRootHash) <- foldM (deleter txn dbiTrie) (True, hashTrie expectedLeaf) dirtyParents
-                  mdb_txn_commit txn
-                  putMVar currentRootVar newRootHash)
+  onException (do currRoot <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
+                  case currRoot of
+                    Nothing         -> throwIO (InsertException "root must exist")
+                    Just (Leaf _ _) -> throwIO (InsertException "root must be a Node")
+                    Just node       -> do (trie, dirtyParents) <- getParents txn dbiTrie (encode k) 0 node rootHash []
+                                          unless (trie == expectedLeaf) (throwIO (DeleteException "(delete) couldn't find expectedLeaf"))
+                                          putStrLn ""
+                                          putStrLn ("dirtyParents: " ++ show (fmap thin dirtyParents))
+                                          (_, newRootHash) <- foldM (deleter txn dbiTrie rootHash) (True, hashTrie expectedLeaf) dirtyParents
+                                          putStrLn ("newRootHash:  " ++ show newRootHash)
+                                          mdb_txn_commit txn
+                                          putMVar currentRootVar newRootHash)
               (do mdb_txn_abort txn
                   putMVar currentRootVar rootHash)
     where
       expectedLeaf :: Trie k v
       expectedLeaf = Leaf k v
 
-      deleter :: MDB_txn -> MDB_dbi -> (Bool, Hash) -> (Word8, Hash, Trie k v) -> IO (Bool, Hash)
-      deleter _ _ _ (_, _, Leaf _ _)
+      thin :: (Word8, Hash, Trie k v) -> (Word8, Hash)
+      thin (idx, hash, _) = (idx, hash)
+
+      fetchChildren :: MDB_txn -> MDB_dbi -> [(Word8, Hash)] -> IO [Trie k v]
+      fetchChildren txn dbi = mapM fetchChild
+        where
+          fetchChild :: (Word8, Hash) -> IO (Trie k v)
+          fetchChild (_, hash) = Db.getOrThrow txn dbi hash (DeleteException "(delete) could not fetch child")
+
+      deleter :: MDB_txn -> MDB_dbi -> Hash -> (Bool, Hash) -> (Word8, Hash, Trie k v) -> IO (Bool, Hash)
+      deleter _ _ _ _ (_, _, Leaf _ _)
         = throwIO (DeleteException "(delete) tried to delete a child in a Leaf")
-      deleter txn dbi (latch, hash) (idx, _, node@(Node pb))
-        = if latch && hasOnlyChild idx node
-            then return (True, hash)
-            else do let newNode     = Node (update pb [(idx, Nothing)]) :: Trie k v
-                        newNodeHash = hashTrie newNode
-                    succPut <- Db.put txn dbi newNodeHash newNode
-                    unless succPut (throwIO (DeleteException "(delete) persisting newNode failed"))
-                    return (False, newNodeHash)
+      deleter txn dbi rootHash (True, hash) (idx, nodeHash, Node pb)
+        = do let updatedPb    = update pb [(idx, Nothing)]
+                 childRefs    = getChildren updatedPb
+             childrenRem <- fetchChildren txn dbi childRefs
+             case (nodeHash == rootHash, childrenRem) of
+               (False, [])                -> return (True, hash)
+               (False, [leaf@(Leaf _ _)]) -> return (True, hashTrie leaf)
+               _                          -> do let newNode     = Node updatedPb :: Trie k v
+                                                    newNodeHash = hashTrie newNode
+                                                Db.putOrThrow txn dbi newNodeHash newNode (DeleteException "(delete) persisting newNode failed")
+                                                return (False, newNodeHash)
+      deleter txn dbi _ (False, hash) (idx, _, Node pb)
+        = do let updatedPb   = update pb [(idx, Just hash)]
+                 newNode     = Node updatedPb :: Trie k v
+                 newNodeHash = hashTrie newNode
+             Db.putOrThrow txn dbi newNodeHash newNode (DeleteException "(delete) persisting newNode failed")
+             return (False, newNodeHash)

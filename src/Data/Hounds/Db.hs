@@ -63,7 +63,7 @@ close db = do
   mdb_env_close env
 
 writeFlags :: MDB_WriteFlags
-writeFlags = compileWriteFlags [MDB_NOOVERWRITE]
+writeFlags = compileWriteFlags []
 
 mdbValToByteString :: MDB_val -> IO B.ByteString
 mdbValToByteString MDB_val{mv_size, mv_data}

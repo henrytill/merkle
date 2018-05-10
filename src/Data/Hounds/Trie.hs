@@ -35,6 +35,14 @@ data Trie k v
   | Leaf k v
   deriving (Eq, Show)
 
+isNode :: Trie k v -> Bool
+isNode (Node _) = True
+isNode _        = False
+
+isLeaf :: Trie k v -> Bool
+isLeaf (Leaf _ _) = True
+isLeaf _          = False
+
 putTrie :: (Serialize k, Serialize v) => Putter (Trie k v)
 putTrie (Node pb)  = putWord8 0 >> put pb
 putTrie (Leaf k v) = putWord8 1 >> put k >> put v

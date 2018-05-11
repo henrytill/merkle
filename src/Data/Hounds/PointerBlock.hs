@@ -15,6 +15,18 @@ import           Data.Word        (Word8)
 import           Data.Hounds.Hash
 
 
+--
+-- Notes:
+-- =====
+-- * Use sparse array/matrix?
+-- * Tag & skip bytes?
+--
+--   data Tag
+--     = Node B.ByteString Hash
+--     | Child Hash
+--     | None
+--
+
 newtype PointerBlock = MkPointerBlock { unPointerBlock :: Array Word8 (Maybe Hash) }
   deriving (Eq, Show)
 

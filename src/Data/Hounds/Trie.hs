@@ -163,20 +163,18 @@ insert context k v = do
                       encodedKeyNew = encode k
                   Db.putOrThrow txn dbiTrie newLeafHash newLeaf (InsertException "persisting newLeaf failed")
                   -- Now, we collect a list of our new leaf's existing parents
-                  (tip, parents) <- getParents txn dbiTrie (encode k) 0 currRoot []
+                  (tip, parents) <- getParents txn dbiTrie encodedKeyNew 0 currRoot []
                   case tip of
                     existingLeaf@(Leaf ek _) ->
-                      do let existingLeafHash   = hashTrie existingLeaf
-                             encodedKeyExisting = encode ek
+                      do let encodedKeyExisting = encode ek
                              sharedPrefix       = commonPrefix encodedKeyNew encodedKeyExisting
-                             sharedPrefixLength = length sharedPrefix - 1
+                             sharedPrefixLength = length sharedPrefix
                              sharedPath         = reverse (drop (length parents) sharedPrefix)
-                             newLeafIndex       = B.index encodedKeyNew      (succ sharedPrefixLength)
-                             existingLeafIndex  = B.index encodedKeyExisting (succ sharedPrefixLength)
-                             hd :: Trie k v     = Node $ update mkPointerBlock [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just existingLeafHash)]
+                             newLeafIndex       = B.index encodedKeyNew      sharedPrefixLength
+                             existingLeafIndex  = B.index encodedKeyExisting sharedPrefixLength
+                             hd :: Trie k v     = Node $ update mkPointerBlock [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just (hashTrie existingLeaf))]
                              empty :: Trie k v  = Node mkPointerBlock
-                             f idx              = (idx, empty)
-                             emptys             = fmap f sharedPath
+                             emptys             = fmap (\ idx -> (idx, empty)) sharedPath
                              nodes              = emptys ++ parents
                              rehashedNodes      = rehash hd nodes
                          newRootHash <- insertTrie txn dbiTrie rehashedNodes
@@ -184,8 +182,7 @@ insert context k v = do
                          putMVar currentRootVar newRootHash
                     Node pb ->
                       do let pathLength     = length parents
-                             newOffset      = pathLength
-                             newLeafIndex   = B.index encodedKeyNew newOffset
+                             newLeafIndex   = B.index encodedKeyNew pathLength
                              hd :: Trie k v = Node $ update pb [(newLeafIndex, Just newLeafHash)]
                              nodes          = parents
                              rehashedNodes  = rehash hd nodes

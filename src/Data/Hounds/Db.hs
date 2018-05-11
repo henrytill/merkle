@@ -131,4 +131,3 @@ putOrThrow :: (Serialize k, Serialize v, Exception e)
            -> e
            -> IO ()
 putOrThrow txn dbi k v e = put txn dbi k v >>= flip unless (throwIO e)
-

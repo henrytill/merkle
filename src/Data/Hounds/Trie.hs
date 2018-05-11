@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Data.Hounds.Trie where
 
@@ -98,28 +98,30 @@ lookup context k = do
             Just hash -> do maybeNode <- Db.get txn dbi hash
                             case maybeNode of
                               Nothing   -> throwIO (LookupException "no node at hash")
-                              Just next -> go txn dbi (depth + 1) next
+                              Just next -> go txn dbi (succ depth) next
       go _ _ _ (Leaf lk lv)
         = if k == lk
             then return (Just lv)
             else return Nothing
 
 getParents :: forall k v. (Serialize k, Serialize v)
-     => MDB_txn
-     -> MDB_dbi
-     -> B.ByteString
-     -> Int
-     -> Trie k v
-     -> [(Word8, Trie k v)]
-     -> IO (Trie k v, [(Word8, Trie k v)])
+           => MDB_txn
+           -> MDB_dbi
+           -> B.ByteString
+           -> Int
+           -> Trie k v
+           -> [(Word8, Trie k v)]
+           -> IO (Trie k v, [(Word8, Trie k v)])
 getParents txn dbi path offset curr@(Node pb) acc
   = let
       byte = B.index path offset
     in
       case unPointerBlock pb ! byte of
-        Just nextHash -> do next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
-                            getParents txn dbi path (offset + 1) next ((byte, curr):acc)
-        Nothing       -> return (curr, acc)
+        Just nextHash ->
+          do next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
+             getParents txn dbi path (succ offset) next ((byte, curr):acc)
+        Nothing ->
+          return (curr, acc)
 getParents _ _ _ _ leaf acc
   = return (leaf, acc)
 
@@ -135,10 +137,9 @@ rehash trie
   where
     f (lastHash, _) (offset, Node pb)
       = let
-          node     = Node $ update pb [(offset, Just lastHash)] :: Trie k v
-          nodeHash = hashTrie node :: Hash
+          node :: Trie k v = Node $ update pb [(offset, Just lastHash)]
         in
-          (nodeHash, node)
+          (hashTrie node, node)
     f _ _
       = throw RehashException
 
@@ -188,8 +189,7 @@ insert context k v = do
                              rehashedNodes  = rehash hd nodes
                          newRootHash <- insertTrie txn dbiTrie rehashedNodes
                          mdb_txn_commit txn
-                         putMVar currentRootVar newRootHash
-                         return ())
+                         putMVar currentRootVar newRootHash)
               (do mdb_txn_abort txn
                   putMVar currentRootVar rootHash)
 

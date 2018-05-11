@@ -38,7 +38,7 @@ data TestKeyException
 instance Exception TestKeyException
 
 newtype TestKey = MkTestKey { unTestKey :: B.ByteString }
-  deriving Eq
+  deriving (Eq, Ord)
 
 instance Show TestKey where
   show (MkTestKey bs) = "TestKey " ++ show (B.unpack bs)

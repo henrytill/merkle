@@ -25,8 +25,8 @@ prop_roundTripDb iodb = M.monadicIO $ do
     go :: Db.Db -> Hash.Hash -> B.ByteString -> IO (Maybe B.ByteString)
     go db hash bs = runInBoundThread $ do
       txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
-      onException (do _   <- Db.put txn (Db.dbDbiStore db) hash bs
-                      mbs <- Db.get txn (Db.dbDbiStore db) hash
+      onException (do _   <- Db.put txn (Db.dbDbiTrie db) hash bs
+                      mbs <- Db.get txn (Db.dbDbiTrie db) hash
                       _   <- mdb_txn_commit txn
                       return mbs)
                   (mdb_txn_abort txn)

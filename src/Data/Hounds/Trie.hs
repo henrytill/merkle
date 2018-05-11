@@ -4,7 +4,7 @@ module Data.Hounds.Trie where
 
 import           Control.Concurrent.MVar  (putMVar, takeMVar, readMVar)
 import           Control.Exception        (Exception, finally, onException, throw, throwIO)
-import           Control.Monad            (foldM, unless)
+import           Control.Monad            (foldM)
 import           Data.Array
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Char8    as C
@@ -150,7 +150,7 @@ insertTrie txn dbi
     inserter :: Hash -> (Hash, Trie k v) -> IO Hash
     inserter _ (hash, trie) = Db.putOrThrow txn dbi hash trie (InsertException "(insertTrie) could not insert") >> return hash
 
-insert :: forall k v. (Serialize k, Serialize v, Show k, Show v) => Context.Context k v -> k -> v -> IO ()
+insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
 insert context k v = do
   let db             = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
@@ -166,6 +166,9 @@ insert context k v = do
                   -- Now, we collect a list of our new leaf's existing parents
                   (tip, parents) <- getParents txn dbiTrie encodedKeyNew 0 currRoot []
                   case tip of
+                    existingLeaf@(Leaf _ _) | existingLeaf == newLeaf ->
+                      do mdb_txn_abort txn
+                         putMVar currentRootVar rootHash
                     existingLeaf@(Leaf ek _) ->
                       do let encodedKeyExisting = encode ek
                              sharedPrefix       = commonPrefix encodedKeyNew encodedKeyExisting
@@ -241,11 +244,17 @@ delete context k v = do
   txn      <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException (do (Just node) <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
                   (trie, dirtyParents) <- getParents txn dbiTrie (encode k) 0 node []
-                  unless (trie == expectedLeaf) (throwIO (DeleteException "(delete) couldn't find expectedLeaf"))
-                  (hd, nodesToRehash) <- deleteLeaf txn dbiTrie dirtyParents
-                  let rehashedNodes = rehash hd nodesToRehash
-                  newRootHash <- insertTrie txn dbiTrie rehashedNodes
-                  mdb_txn_commit txn
-                  putMVar currentRootVar newRootHash)
+                  case trie of
+                    Node pb | null (getChildren pb) ->
+                      do mdb_txn_abort txn
+                         putMVar currentRootVar rootHash
+                    _ | trie == expectedLeaf ->
+                      do (hd, nodesToRehash) <- deleteLeaf txn dbiTrie dirtyParents
+                         let rehashedNodes = rehash hd nodesToRehash
+                         newRootHash <- insertTrie txn dbiTrie rehashedNodes
+                         mdb_txn_commit txn
+                         putMVar currentRootVar newRootHash
+                    _ ->
+                      throwIO (DeleteException "(delete) trie was not expectedLeaf"))
               (do mdb_txn_abort txn
                   putMVar currentRootVar rootHash)

@@ -234,7 +234,7 @@ propagateLeafUpward txn dbi hash ((byte, Node pb):tl)
 propagateLeafUpward _ _ _ _
   = throwIO (DeleteException "(propagateLeafUpward) shit happened")
 
-delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
+delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO Bool
 delete context k v = do
   let db             = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
@@ -248,13 +248,17 @@ delete context k v = do
                     Node pb | null (getChildren pb) ->
                       do mdb_txn_abort txn
                          putMVar currentRootVar rootHash
+                         return False
                     _ | trie == expectedLeaf ->
                       do (hd, nodesToRehash) <- deleteLeaf txn dbiTrie dirtyParents
                          let rehashedNodes = rehash hd nodesToRehash
                          newRootHash <- insertTrie txn dbiTrie rehashedNodes
                          mdb_txn_commit txn
                          putMVar currentRootVar newRootHash
+                         return True
                     _ ->
-                      throwIO (DeleteException "(delete) trie was not expectedLeaf"))
+                      do mdb_txn_abort txn
+                         putMVar currentRootVar rootHash
+                         return False)
               (do mdb_txn_abort txn
                   putMVar currentRootVar rootHash)

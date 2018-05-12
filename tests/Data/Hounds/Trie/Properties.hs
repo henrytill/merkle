@@ -15,8 +15,8 @@ import qualified Data.Hounds.Trie                     as Trie
 prop_roundTrip :: (Arbitrary a, Eq a, Serialize a) => a -> Bool
 prop_roundTrip t = decode (encode t) == Right t
 
-trieProperties :: [TestTree]
-trieProperties =
-  [ testProperty "Round trip Tree serialization"
+trieProperties :: TestTree
+trieProperties = testGroup "Trie property tests"
+  [ testProperty "Round trip Trie serialization"
                  (prop_roundTrip :: Trie.Trie TestKey B.ByteString -> Bool)
   ]

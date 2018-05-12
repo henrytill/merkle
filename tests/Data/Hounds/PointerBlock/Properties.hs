@@ -18,5 +18,7 @@ prop_getChildren children = getChildren pb == childrenList
     f (i, h)     = (i, Just h)
     pb           = update mkPointerBlock (fmap f childrenList)
 
-pointerBlockProperties :: [TestTree]
-pointerBlockProperties = [ testProperty "getChildren" prop_getChildren ]
+pointerBlockProperties :: TestTree
+pointerBlockProperties = testGroup "PointerBlock property tests"
+  [ testProperty "getChildren" prop_getChildren
+  ]

@@ -79,8 +79,8 @@ fourPutsFetchLog ioContext = runInBoundThread $ do
   lg      <- Context.fetchLog context
   assertEqual "the log did not contain the expected contents" expected (reverse lg)
 
-storeTests :: [TestTree]
-storeTests =
+storeTests :: TestTree
+storeTests = testGroup "Store unit tests"
   [ withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "put get" . putGet)

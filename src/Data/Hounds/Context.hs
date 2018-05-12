@@ -1,6 +1,6 @@
 module Data.Hounds.Context where
 
-import           Control.Concurrent.MVar (MVar, newMVar, readMVar)
+import           Control.Concurrent.MVar (MVar, newMVar, readMVar, modifyMVar_)
 import qualified Data.Map                as Map
 import           Data.Serialize
 import           Data.Word               (Word64)
@@ -36,3 +36,6 @@ fetchLog = readMVar . contextLog
 
 fetchWorkingRoot :: Context k v -> IO Hash.Hash
 fetchWorkingRoot = readMVar . contextWorkingRoot
+
+setWorkingRoot :: Context k v -> Hash.Hash -> IO ()
+setWorkingRoot context = modifyMVar_ (contextWorkingRoot context) . const . pure

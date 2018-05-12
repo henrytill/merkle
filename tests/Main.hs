@@ -11,13 +11,13 @@ import           Data.Hounds.Trie.Tests              (trieTests)
 
 
 props :: [TestTree]
-props = dbProperties ++ pointerBlockProperties ++ trieProperties
+props = [dbProperties, pointerBlockProperties, trieProperties]
 
 units :: [TestTree]
-units = storeTests ++ trieTests
+units = [storeTests, trieTests]
 
 tests :: TestTree
-tests = testGroup "tests" [testGroup "props" props, testGroup "units" units]
+tests = testGroup "Tests" [testGroup "Property tests" props, testGroup "Unit tests" units]
 
 main :: IO ()
 main = defaultMain tests

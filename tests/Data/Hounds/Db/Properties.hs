@@ -31,8 +31,8 @@ prop_roundTripDb iodb = M.monadicIO $ do
                       return mbs)
                   (mdb_txn_abort txn)
 
-dbProperties :: [TestTree]
-dbProperties =
+dbProperties :: TestTree
+dbProperties = testGroup "Db property tests"
   [ withResource (runInBoundThread initTempDb)
                  (runInBoundThread . Db.close)
                  (testProperty "Round trip leaves to db" . prop_roundTripDb)

@@ -154,34 +154,143 @@ insertLookupDeleteLookupDeleteAgainLookupTest ioContext = runInBoundThread $ do
   assertEqual "root 3 was not equal to root 0"   root0 root3
   assertEqual "returned value 3 was not Nothing" Nothing ret3
 
+rollbackRepeatTest :: IO TestContext -> Assertion
+rollbackRepeatTest ioContext = runInBoundThread $ do
+  context <- ioContext
+  root0   <- Context.fetchWorkingRoot context
+  _       <- Trie.insert context key1 val1
+  root1   <- Context.fetchWorkingRoot context
+  assertNotEqual "root 1 was equal to root 0" root0 root1
+  _       <- Trie.insert context key2 val2
+  root2   <- Context.fetchWorkingRoot context
+  assertNotEqual "root 2 was equal to root 1" root1 root2
+  ret1    <- Trie.lookup context key1
+  ret2    <- Trie.lookup context key2
+  assertEqual "returned value 1 did not equal inserted value" (Just val1) ret1
+  assertEqual "returned value 2 did not equal inserted value" (Just val2) ret2
+  _       <- Trie.delete context key2 val2
+  root3   <- Context.fetchWorkingRoot context
+  ret3    <- Trie.lookup context key1
+  ret4    <- Trie.lookup context key2
+  assertEqual "root 3 did not equal root 1" root1 root3
+  assertEqual "returned value 3 did not equal inserted value" (Just val1) ret3
+  assertEqual "returned value 4 was not Nothing"              Nothing     ret4
+  _       <- Trie.delete context key1 val1
+  root4   <- Context.fetchWorkingRoot context
+  ret5    <- Trie.lookup context key1
+  ret6    <- Trie.lookup context key2
+  assertEqual "root 4 did not equal root 0"      root0   root4
+  assertEqual "returned value 5 was not Nothing" Nothing ret5
+  assertEqual "returned value 6 was not Nothing" Nothing ret4
+  -- === Rollback ===
+  _       <- Context.setWorkingRoot context root2
+  ret7    <- Trie.lookup context key1
+  ret8    <- Trie.lookup context key2
+  assertEqual "returned value 7 did not equal inserted value" (Just val1) ret7
+  assertEqual "returned value 8 did not equal inserted value" (Just val2) ret8
+  _       <- Trie.delete context key2 val2
+  root5   <- Context.fetchWorkingRoot context
+  ret9    <- Trie.lookup context key1
+  ret10   <- Trie.lookup context key2
+  assertEqual "root 5 did not equal root 1"                   root1       root5
+  assertEqual "returned value 9 did not equal inserted value" (Just val1) ret9
+  assertEqual "returned value 10 was not Nothing"             Nothing     ret10
+  _       <- Trie.delete context key1 val1
+  root6   <- Context.fetchWorkingRoot context
+  ret11   <- Trie.lookup context key1
+  ret12   <- Trie.lookup context key2
+  assertEqual "root 6 did not equal root 0"       root0   root6
+  assertEqual "returned value 11 was not Nothing" Nothing ret11
+  assertEqual "returned value 12 was not Nothing" Nothing ret4
 
-trieTests :: [TestTree]
-trieTests =
+rollbackForkTest :: IO TestContext -> Assertion
+rollbackForkTest ioContext = runInBoundThread $ do
+  context <- ioContext
+  root0   <- Context.fetchWorkingRoot context
+  _       <- Trie.insert context key1 val1
+  root1   <- Context.fetchWorkingRoot context
+  assertNotEqual "root 1 was equal to root 0" root0 root1
+  _       <- Trie.insert context key2 val2
+  root2   <- Context.fetchWorkingRoot context
+  assertNotEqual "root 2 was equal to root 1" root1 root2
+  ret1    <- Trie.lookup context key1
+  ret2    <- Trie.lookup context key2
+  assertEqual "returned value 1 did not equal inserted value" (Just val1) ret1
+  assertEqual "returned value 2 did not equal inserted value" (Just val2) ret2
+  _       <- Trie.delete context key2 val2
+  root3   <- Context.fetchWorkingRoot context
+  ret3    <- Trie.lookup context key1
+  ret4    <- Trie.lookup context key2
+  assertEqual "root 3 did not equal root 1" root1 root3
+  assertEqual "returned value 3 did not equal inserted value" (Just val1) ret3
+  assertEqual "returned value 4 was not Nothing"              Nothing     ret4
+  _       <- Trie.delete context key1 val1
+  root4   <- Context.fetchWorkingRoot context
+  ret5    <- Trie.lookup context key1
+  ret6    <- Trie.lookup context key2
+  assertEqual "root 4 did not equal root 0"      root0   root4
+  assertEqual "returned value 5 was not Nothing" Nothing ret5
+  assertEqual "returned value 6 was not Nothing" Nothing ret4
+  -- === Rollback ===
+  _       <- Context.setWorkingRoot context root2
+  ret7    <- Trie.lookup context key1
+  ret8    <- Trie.lookup context key2
+  assertEqual "returned value 7 did not equal inserted value" (Just val1) ret7
+  assertEqual "returned value 8 did not equal inserted value" (Just val2) ret8
+  _       <- Trie.insert context key3 val3
+  root5   <- Context.fetchWorkingRoot context
+  ret9    <- Trie.lookup context key1
+  ret10   <- Trie.lookup context key2
+  ret11   <- Trie.lookup context key3
+  assertNotEqual "root 5 did not equal root 4"                     root4       root5
+  assertEqual    "returned value 9 did not equal inserted value"   (Just val1) ret9
+  assertEqual    "returned value 10 did not equal inserted value"  (Just val2) ret10
+  assertEqual    "returned value 11 did not equal inserted value"  (Just val3) ret11
+  _       <- Trie.insert context key4 val4
+  root6   <- Context.fetchWorkingRoot context
+  ret12   <- Trie.lookup context key1
+  ret13   <- Trie.lookup context key2
+  ret14   <- Trie.lookup context key3
+  ret15   <- Trie.lookup context key4
+  assertNotEqual "root 6 did not equal root 5"                     root5       root6
+  assertEqual    "returned value 12 did not equal inserted value"  (Just val1) ret12
+  assertEqual    "returned value 13 did not equal inserted value"  (Just val2) ret13
+  assertEqual    "returned value 14 did not equal inserted value"  (Just val3) ret14
+  assertEqual    "returned value 15 did not equal inserted value"  (Just val4) ret15
+
+trieTests :: TestTree
+trieTests = testGroup "Trie unit tests"
   [ withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert, lookup" . insertLookupTest)
+                 (testCase "insert" . insertLookupTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "two inserts, two lookups" . twoInsertsTwoLookupsTest)
+                 (testCase "two inserts" . twoInsertsTwoLookupsTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "three inserts, three lookups" . threeInsertsThreeLookupsTest)
+                 (testCase "three inserts" . threeInsertsThreeLookupsTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "four inserts, four lookups" . fourInsertsFourLookupsTest)
+                 (testCase "four inserts" . fourInsertsFourLookupsTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "five inserts, five lookups" . fiveInsertsFiveLookupsTest)
+                 (testCase "five inserts" . fiveInsertsFiveLookupsTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert, lookup, delete" . insertLookupDeleteLookupTest)
+                 (testCase "insert, delete" . insertLookupDeleteLookupTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert, insert, lookup, lookup, delete, lookup, lookup, delete, lookup, lookup" . insertInsertDeleteDeleteTest)
+                 (testCase "insert, insert, delete, delete" . insertInsertDeleteDeleteTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "duplicate inserts, lookup" . duplicateInsertsLookupTest)
+                 (testCase "duplicate inserts" . duplicateInsertsLookupTest)
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert, lookup, delete, lookup, delete again, lookup" . insertLookupDeleteLookupDeleteAgainLookupTest)
+                 (testCase "insert, delete, delete again" . insertLookupDeleteLookupDeleteAgainLookupTest)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Context.contextDb)
+                 (testCase "rollback repeat test" . rollbackRepeatTest)
+  , withResource (runInBoundThread initTempEnv)
+                 (runInBoundThread . Db.close . Context.contextDb)
+                 (testCase "rollback fork test" . rollbackForkTest)
   ]

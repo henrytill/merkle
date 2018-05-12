@@ -1,6 +1,5 @@
 module Data.Hounds.PointerBlock.Properties (pointerBlockProperties) where
 
-
 import           Data.Map.Strict          (Map, toList)
 import           Data.Word                (Word8)
 import           Test.Tasty

@@ -39,3 +39,6 @@ fetchWorkingRoot = readMVar . contextWorkingRoot
 
 setWorkingRoot :: Context k v -> Hash.Hash -> IO ()
 setWorkingRoot context = modifyMVar_ (contextWorkingRoot context) . const . pure
+
+close :: Context k v -> IO ()
+close = Db.close . contextDb

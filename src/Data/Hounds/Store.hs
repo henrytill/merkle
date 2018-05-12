@@ -74,7 +74,7 @@ get :: Ord k
     -> IO (Maybe v)
 get context k = Map.lookup k <$> readMVar (Context.contextStore context)
 
-checkpoint :: forall k v. (Ord k, Eq k, Eq v, Show k, Show v, S.Serialize k, S.Serialize v)
+checkpoint :: forall k v. (Ord k, Eq k, Eq v, S.Serialize k, S.Serialize v)
            => Context.Context k v
            -> IO Hash.Hash
 checkpoint context = do

@@ -234,7 +234,7 @@ propagateLeafUpward txn dbi hash ((byte, Node pb):tl)
 propagateLeafUpward _ _ _ _
   = throwIO (DeleteException "(propagateLeafUpward) shit happened")
 
-delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v, Show k, Show v) => Context.Context k v -> k -> v -> IO ()
+delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
 delete context k v = do
   let db             = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context

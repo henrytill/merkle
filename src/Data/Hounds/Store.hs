@@ -2,7 +2,7 @@
 
 module Data.Hounds.Store where
 
-import           Control.Concurrent.MVar (putMVar, readMVar, takeMVar)
+import           Control.Concurrent.MVar (newMVar, putMVar, readMVar, takeMVar)
 import           Control.Exception       (onException)
 import qualified Data.Map                as Map
 import qualified Data.Serialize          as S
@@ -88,3 +88,8 @@ checkpoint context = do
       operate :: Log.LogEntry k v -> IO ()
       operate (Log.MkLogEntry _ Log.Insert key value) = Trie.insert context key value
       operate (Log.MkLogEntry _ Log.Delete key value) = Trie.delete context key value
+
+reset :: Context.Context k v -> Hash.Hash -> IO (Context.Context k v)
+reset context hash = do
+  workingRootVar <- newMVar hash
+  return context{Context.contextWorkingRoot = workingRootVar}

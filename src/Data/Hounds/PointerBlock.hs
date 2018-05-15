@@ -14,17 +14,20 @@ import           Data.Word             (Word8)
 
 import           Data.Hounds.Hash
 
-
 --
 -- Notes:
 -- =====
--- * Use sparse array/matrix?
--- * Tag & skip bytes?
+-- * Use skip blocks?
+-- * Possible Alternate encoding:
 --
---   data Tag
---     = Node B.ByteString Hash
---     | Child Hash
---     | None
+--   data PointerBlockHash
+--     = LeafHash Hash
+--     | NodeHash Hash
+--     | Nothing
+--
+--   newtype PointerBlock = MkPointerBlock { unPointerBlock :: IntMap PointerBlockHash }
+--
+-- (Using `PointerBlockHash` saves us a trip to the database to fetch the children)
 --
 
 newtype PointerBlock = MkPointerBlock { unPointerBlock :: Seq.Seq (Maybe Hash) }

@@ -24,16 +24,16 @@ library
                      , Data.Hounds.PointerBlock
                      , Data.Hounds.Store
                      , Data.Hounds.Trie
-  -- other-modules:
+  other-modules:       Data.Serialize.Extras
   -- other-extensions:
   build-depends:       base              >=4.10 && <4.11
-                     , array             >=0.5  && <0.6
                      , base16-bytestring >=0.1  && <0.2
                      , blake2            >=0.2  && <0.3
                      , bytestring        >=0.10 && <0.11
                      , cereal            >=0.5  && <0.6
                      , containers        >=0.5  && <0.6
                      , lmdb              >=0.2  && <0.3
+                     , vector            >=0.12 && <0.13
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Werror
@@ -43,12 +43,14 @@ test-suite tests
   main-is:             Main.hs
   other-modules:       Data.Hounds.Db.Properties
                      , Data.Hounds.PointerBlock.Properties
+                     , Data.Hounds.PointerBlock.Tests
                      , Data.Hounds.Store.Tests
                      , Data.Hounds.Trie.Properties
                      , Data.Hounds.Trie.Tests
                      , Data.Hounds.Orphans
                      , Data.Hounds.Test
   build-depends:       base
+                     , base16-bytestring    >=0.1  && <0.2
                      , bytestring           >=0.10 && <0.11
                      , cereal               >=0.5  && <0.6
                      , containers           >=0.5  && <0.6

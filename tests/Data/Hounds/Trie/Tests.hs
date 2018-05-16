@@ -1,17 +1,27 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -Wno-unused-matches   #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Data.Hounds.Trie.Tests (trieTests) where
 
-import           Control.Concurrent  (runInBoundThread)
+import           Control.Concurrent       (runInBoundThread)
+import qualified Data.ByteString.Base16   as Base16
+import qualified Data.ByteString.Char8    as C
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import qualified Data.Hounds.Context as Context
-import qualified Data.Hounds.Db      as Db
+import qualified Data.Hounds.Context      as Context
+import qualified Data.Hounds.Db           as Db
+import qualified Data.Hounds.Hash         as Hash
+import qualified Data.Hounds.PointerBlock as PointerBlock
 import           Data.Hounds.Test
-import qualified Data.Hounds.Trie    as Trie
+import qualified Data.Hounds.Trie         as Trie
 
+emptyRootHashTest :: Assertion
+emptyRootHashTest = assertEqual "The empty root hash was not the expected value" expected actual
+  where
+    (expected, _) = Base16.decode (C.pack "c575260cf13e36f179a50b0882bd64fc0466ecd25bdd7bc88766c2cc2e4c0dfe")
+    actual        = Hash.unHash (Trie.hashTrie (Trie.mkTrie PointerBlock.mkPointerBlock :: Trie.Trie TestKey String))
 
 assertNotEqual :: (HasCallStack, Eq a) => String -> a -> a -> Assertion
 assertNotEqual msg a b = assertBool msg (a /= b)
@@ -260,7 +270,8 @@ rollbackForkTest ioContext = runInBoundThread $ do
 
 trieTests :: TestTree
 trieTests = testGroup "Trie unit tests"
-  [ withResource (runInBoundThread initTempEnv)
+  [ testCase "empty root hash" emptyRootHashTest
+  , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "insert" . insertLookupTest)
   , withResource (runInBoundThread initTempEnv)

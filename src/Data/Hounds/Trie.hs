@@ -33,8 +33,8 @@ data Trie k v
   deriving Eq
 
 instance (Show k, Show v) => Show (Trie k v) where
-  show (Node pb)  = "Node " ++ show (getChildren pb)
   show (Leaf k v) = "Leaf " ++ show k ++ " " ++ show v
+  show (Node pb)  = "Node " ++ show (getChildren pb)
 
 isNode :: Trie k v -> Bool
 isNode (Node _) = True
@@ -45,15 +45,15 @@ isLeaf (Leaf _ _) = True
 isLeaf _          = False
 
 putTrie :: (Serialize k, Serialize v) => Putter (Trie k v)
-putTrie (Node pb)  = putWord8 0 >> put pb
-putTrie (Leaf k v) = putWord8 1 >> put k >> put v
+putTrie (Leaf k v) = putWord8 0 >> put k >> put v
+putTrie (Node pb)  = putWord8 1 >> put pb
 
 getTrie :: (Serialize k, Serialize v) => Get (Trie k v)
 getTrie = do
   tag <- getWord8
   case tag of
-    0 -> Node <$> get
-    1 -> Leaf <$> get <*> get
+    0 -> Leaf <$> get <*> get
+    1 -> Node <$> get
     _ -> fail "no such tag"
 
 instance (Serialize k, Serialize v) => Serialize (Trie k v) where

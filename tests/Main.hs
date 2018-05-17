@@ -3,7 +3,8 @@ module Main (main) where
 import           Test.Tasty                          (TestTree, defaultMain,
                                                       testGroup)
 
-import           Data.Hounds.Db.Properties
+import           Data.Hounds.Db.Properties           (dbProperties)
+import           Data.Hounds.Hash.Tests              (hashTests)
 import           Data.Hounds.PointerBlock.Tests      (pointerBlockTests)
 import           Data.Hounds.PointerBlock.Properties (pointerBlockProperties)
 import           Data.Hounds.Store.Tests             (storeTests)
@@ -15,7 +16,7 @@ props :: [TestTree]
 props = [dbProperties, pointerBlockProperties, trieProperties]
 
 units :: [TestTree]
-units = [pointerBlockTests, storeTests, trieTests]
+units = [hashTests, pointerBlockTests, storeTests, trieTests]
 
 tests :: TestTree
 tests = testGroup "Tests" [testGroup "Property tests" props, testGroup "Unit tests" units]

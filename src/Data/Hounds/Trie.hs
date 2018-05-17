@@ -28,8 +28,8 @@ data TrieException
 instance Exception TrieException
 
 data Trie k v
-  = Node PointerBlock
-  | Leaf k v
+  = Leaf k v
+  | Node PointerBlock
   deriving Eq
 
 instance (Show k, Show v) => Show (Trie k v) where

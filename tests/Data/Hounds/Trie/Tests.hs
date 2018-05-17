@@ -23,6 +23,15 @@ emptyRootHashTest = assertEqual "The empty root hash was not the expected value"
     (expected, _) = Base16.decode (C.pack "c575260cf13e36f179a50b0882bd64fc0466ecd25bdd7bc88766c2cc2e4c0dfe")
     actual        = Hash.unHash (Trie.hashTrie (Trie.mkTrie PointerBlock.mkPointerBlock :: Trie.Trie TestKey String))
 
+oneLeafHashTest :: Assertion
+oneLeafHashTest = assertEqual "The hash of a simple leaf was not the expected value" expected actual
+  where
+    (expected, _) = Base16.decode (C.pack "dbad1a97cd55325a85072099ab0ad79ce4c2d1e2d0548a140bd2ec5741a33587")
+    hello         = C.pack "hello"
+    helloHash     = Hash.mkHash hello
+    leaf          = Trie.Leaf helloHash hello
+    actual        = (Hash.unHash . Trie.hashTrie) leaf
+
 assertNotEqual :: (HasCallStack, Eq a) => String -> a -> a -> Assertion
 assertNotEqual msg a b = assertBool msg (a /= b)
 
@@ -271,6 +280,7 @@ rollbackForkTest ioContext = runInBoundThread $ do
 trieTests :: TestTree
 trieTests = testGroup "Trie unit tests"
   [ testCase "empty root hash" emptyRootHashTest
+  , testCase "single leaf hash" oneLeafHashTest
   , withResource (runInBoundThread initTempEnv)
                  (runInBoundThread . Db.close . Context.contextDb)
                  (testCase "insert" . insertLookupTest)

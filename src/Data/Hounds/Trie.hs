@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 module Data.Hounds.Trie where
 
@@ -178,7 +179,7 @@ insert context k v = do
                              existingLeafIndex  = B.index encodedKeyExisting sharedPrefixLength
                              hd :: Trie k v     = Node $ update mkPointerBlock [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just (hashTrie existingLeaf))]
                              empty :: Trie k v  = Node mkPointerBlock
-                             emptys             = fmap (\ idx -> (idx, empty)) sharedPath
+                             emptys             = fmap (, empty) sharedPath
                              nodes              = emptys ++ parents
                              rehashedNodes      = rehash hd nodes
                          newRootHash <- insertTrie txn dbiTrie rehashedNodes

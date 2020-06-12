@@ -9,7 +9,7 @@ let
     env = (hounds {}).env;
 
     hounds =
-      { compiler ? "ghc822" }:
+      { compiler ? "ghc883" }:
       let
         houndsRaw = pkgs.haskell.packages.${compiler}.callCabal2nix "hounds" ./. {};
       in

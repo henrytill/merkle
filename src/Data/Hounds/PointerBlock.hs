@@ -8,11 +8,13 @@ module Data.Hounds.PointerBlock
   , getChildren
   ) where
 
-import           Data.Array       (Array, Ix, (!), (//))
-import qualified Data.Array       as Array
-import qualified Data.Ix          as Ix
+import           Data.Array        (Array)
+import           Data.Array.IArray ((!), (//))
+import qualified Data.Array.IArray as IArray
+import           Data.Ix           (Ix)
+import qualified Data.Ix           as Ix
 import           Data.Serialize
-import           Data.Word        (Word8)
+import           Data.Word         (Word8)
 
 import           Data.Hounds.Hash
 
@@ -39,7 +41,7 @@ newtype PointerBlock = MkPointerBlock { unPointerBlock :: Array Word8 (Maybe Has
   deriving (Eq, Show)
 
 mkArray :: (Ix a) => (a -> b) -> (a, a) -> Array a b
-mkArray f bnds =  Array.array bnds [(i, f i) | i <- Ix.range bnds]
+mkArray f bnds =  IArray.array bnds [(i, f i) | i <- Ix.range bnds]
 
 mkPointerBlock :: PointerBlock
 mkPointerBlock = MkPointerBlock (mkArray (const Nothing) bounds)
@@ -48,10 +50,10 @@ fillPointerBlock :: Maybe Hash -> PointerBlock
 fillPointerBlock maybeHash = MkPointerBlock (mkArray (const maybeHash) bounds)
 
 putPointerBlock :: Putter PointerBlock
-putPointerBlock = mapM_ (putMaybeOf put) . Array.elems . unPointerBlock
+putPointerBlock = mapM_ (putMaybeOf put) . IArray.elems . unPointerBlock
 
 getArrayOf :: Ix i => (i, i) -> Get a -> Get (Array i a)
-getArrayOf bnds m = Array.listArray bnds <$> go [] (Ix.rangeSize bnds)
+getArrayOf bnds m = IArray.listArray bnds <$> go [] (Ix.rangeSize bnds)
   where
     go as 0 = return (reverse as)
     go as i = do x <- m
@@ -71,7 +73,7 @@ update :: PointerBlock -> [(Word8, Maybe Hash)] -> PointerBlock
 update (MkPointerBlock curr) as = MkPointerBlock (curr // as)
 
 getChildren :: PointerBlock -> [(Word8, Hash)]
-getChildren = foldr f [] . Array.assocs . unPointerBlock
+getChildren = foldr f [] . IArray.assocs . unPointerBlock
   where
     f (idx, Just p) acc = (idx, p) : acc
     f (_, Nothing)  acc = acc

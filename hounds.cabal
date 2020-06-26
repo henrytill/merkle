@@ -24,16 +24,15 @@ library
                      , Data.Hounds.PointerBlock
                      , Data.Hounds.Store
                      , Data.Hounds.Trie
-  other-modules:       Data.Serialize.Extras
   -- other-extensions:
   build-depends:       base              >=4.10 && <5
+                     , array             >=0.5  && <0.6
                      , base16-bytestring >=0.1  && <0.2
                      , blake2            >=0.2  && <0.4
                      , bytestring        >=0.10 && <0.11
                      , cereal            >=0.5  && <0.6
                      , containers        >=0.5  && <0.7
                      , lmdb              >=0.2  && <0.3
-                     , vector            >=0.12 && <0.13
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Werror
@@ -51,6 +50,7 @@ test-suite tests
                      , Data.Hounds.Orphans
                      , Data.Hounds.Test
   build-depends:       base
+                     , array                >=0.5  && <0.6
                      , base16-bytestring    >=0.1  && <0.2
                      , bytestring           >=0.10 && <0.11
                      , cereal               >=0.5  && <0.6

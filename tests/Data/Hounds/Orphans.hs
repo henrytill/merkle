@@ -2,7 +2,8 @@
 
 module Data.Hounds.Orphans where
 
-import qualified Data.Sequence                        as Seq
+import qualified Data.Array                           as Array
+import qualified Data.Ix                              as Ix
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances.Array      ()
 import           Test.QuickCheck.Instances.ByteString ()
@@ -19,7 +20,8 @@ instance Arbitrary Hash where
 instance Arbitrary PointerBlock where
   arbitrary = MkPointerBlock <$> arb
     where
-      arb = Seq.fromList <$> vectorOf 256 arbitrary
+      size = Ix.rangeSize bounds
+      arb  = Array.listArray bounds <$> vectorOf size arbitrary
 
 instance (Arbitrary k, Arbitrary v) => Arbitrary (Trie k v) where
   arbitrary = oneof [Node <$> arbitrary, Leaf <$> arbitrary <*> arbitrary]

@@ -3,13 +3,13 @@
 
 module Data.Hounds.Trie where
 
-import           Control.Concurrent.MVar  (putMVar, takeMVar, readMVar)
-import           Control.Exception        (Exception, finally, onException, throw, throwIO)
+import           Control.Concurrent.MVar  (putMVar, readMVar, takeMVar)
+import           Control.Exception        (Exception, finally, onException,
+                                           throw, throwIO)
 import           Control.Monad            (foldM)
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Char8    as C
 import           Data.Serialize
-import qualified Data.Sequence            as Seq
 import           Data.Word                (Word8)
 import           Database.LMDB.Raw
 
@@ -94,7 +94,7 @@ lookup context k = do
 
       go :: MDB_txn -> MDB_dbi -> Int -> Trie k v -> IO (Maybe v)
       go txn dbi depth (Node pb)
-        = case Seq.index (unPointerBlock pb) (fromIntegral (B.index path depth)) of
+        = case index pb (fromIntegral (B.index path depth)) of
             Nothing   -> return Nothing
             Just hash -> do maybeNode <- Db.get txn dbi hash
                             case maybeNode of
@@ -117,7 +117,7 @@ getParents txn dbi path offset curr@(Node pb) acc
   = let
       byte = B.index path offset
     in
-      case Seq.index (unPointerBlock pb) (fromIntegral byte) of
+      case index pb (fromIntegral byte) of
         Just nextHash ->
           do next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
              getParents txn dbi path (succ offset) next ((byte, curr):acc)

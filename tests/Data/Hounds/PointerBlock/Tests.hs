@@ -3,7 +3,6 @@ module Data.Hounds.PointerBlock.Tests where
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Base16   as Base16
 import qualified Data.ByteString.Char8    as C
-import qualified Data.Sequence            as Seq
 import           Data.Serialize
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -22,7 +21,7 @@ helloHash :: Hash.Hash
 helloHash = Hash.mkHash (C.pack "hello")
 
 fullPb :: PointerBlock.PointerBlock
-fullPb = PointerBlock.MkPointerBlock $ Seq.replicate 256 (Just helloHash)
+fullPb = PointerBlock.fillPointerBlock (Just helloHash)
 
 emptyHashTest :: Assertion
 emptyHashTest = assertEqual "The hash of an empty PointerBlock was not the expected value" expected actual

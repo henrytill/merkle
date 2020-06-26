@@ -4,16 +4,17 @@ import           Test.Tasty                          (TestTree, defaultMain,
                                                       testGroup)
 
 import           Data.Hounds.Db.Properties           (dbProperties)
+import           Data.Hounds.Hash.Properties         (hashProperties)
 import           Data.Hounds.Hash.Tests              (hashTests)
-import           Data.Hounds.PointerBlock.Tests      (pointerBlockTests)
 import           Data.Hounds.PointerBlock.Properties (pointerBlockProperties)
+import           Data.Hounds.PointerBlock.Tests      (pointerBlockTests)
 import           Data.Hounds.Store.Tests             (storeTests)
 import           Data.Hounds.Trie.Properties         (trieProperties)
 import           Data.Hounds.Trie.Tests              (trieTests)
 
 
 props :: [TestTree]
-props = [dbProperties, pointerBlockProperties, trieProperties]
+props = [dbProperties, hashProperties, pointerBlockProperties, trieProperties]
 
 units :: [TestTree]
 units = [hashTests, pointerBlockTests, storeTests, trieTests]

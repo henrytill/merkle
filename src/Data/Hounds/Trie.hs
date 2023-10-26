@@ -208,7 +208,7 @@ deleteLeaf txn dbi ((byte, Node pb):tl)
   = case getChildren pb of
       []       -> throwIO (DeleteException "(deleteLeaf) no children")
       [_]      -> deleteLeaf txn dbi tl
-      c@[_, _] -> do let [otherHash] = [child | (cByte, child) <- c, cByte /= byte]
+      c@[_, _] -> do otherHash <- getOtherHash byte c
                      otherNode <- Db.getOrThrow txn dbi otherHash (DeleteException "(deleteLeaf) could not get otherHash") :: IO (Trie k v)
                      case otherNode of
                        Node _   -> return updated
@@ -216,6 +216,9 @@ deleteLeaf txn dbi ((byte, Node pb):tl)
       _        -> return updated
   where
     updated = (Node $ update pb [(byte, Nothing)], tl)
+    getOtherHash b c = case [child | (cByte, child) <- c, cByte /= b] of
+      [x] -> return x
+      _   -> throwIO (DeleteException "(deleteLeaf) could not produce otherHash")
 deleteLeaf _ _ _
   = throwIO (DeleteException "(deleteLeaf) shit happened")
 

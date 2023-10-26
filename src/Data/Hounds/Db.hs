@@ -45,7 +45,7 @@ mkDb dbDir mapSize = do
   mdb_env_set_maxdbs env 2
   mdb_env_open env dbDir []
   txn <- mdb_txn_begin env Nothing False
-  onException (do dbiTrie  <- mdb_dbi_open txn (Just "trie")  [MDB_CREATE]
+  onException (do dbiTrie  <- mdb_dbi_open txn (Just "trie") [MDB_CREATE]
                   mdb_txn_commit txn
                   return MkDb { dbEnv      = env
                               , dbDbiTrie  = dbiTrie

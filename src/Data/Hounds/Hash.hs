@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Data.Hounds.Hash
   ( Hash(..)
   , mkHash
@@ -20,11 +22,12 @@ instance Show Hash where
   show (MkHash bs) = C.unpack (Base16.encode bs)
 
 instance Read Hash where
-  readsPrec _ = \ input ->
-    let
-      (bs, r) = Base16.decode (C.pack input)
-    in
-      [(MkHash bs, C.unpack r) | r == C.empty, B.length bs == digestLength]
+  readsPrec _ input =
+    [(MkHash bs, C.unpack r) | r == C.empty, B.length bs == digestLength]
+    where
+      -- TODO: This was hacked together to overcome API changes in base16-bytestring,
+      -- but it could be rethought.
+      (bs, r) = either (const (B.empty, C.empty)) (, C.empty) (Base16.decode (C.pack input))
 
 mkHash :: B.ByteString -> Hash
 mkHash = MkHash . BLAKE2b.hash digestLength mempty

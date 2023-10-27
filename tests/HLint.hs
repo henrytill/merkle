@@ -1,13 +1,13 @@
 module Main (main) where
 
-import           Control.Monad          (unless)
-import           Language.Haskell.HLint (hlint)
-import           System.Environment     (getArgs)
-import           System.Exit            (exitFailure)
+import Control.Monad (unless)
+import Language.Haskell.HLint (hlint)
+import System.Environment (getArgs)
+import System.Exit (exitFailure)
 
 
 main :: IO ()
 main = do
-  args  <- getArgs
+  args <- getArgs
   hints <- hlint (["src", "tests"] ++ args)
   unless (null hints) exitFailure

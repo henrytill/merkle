@@ -12,15 +12,15 @@ module Data.Hounds.Db
   , getOrThrow
   ) where
 
-import           Control.Exception        (Exception, onException, throwIO)
-import           Control.Monad            (unless)
-import qualified Data.ByteString          as B
+import Control.Exception (Exception, onException, throwIO)
+import Control.Monad (unless)
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as BI
-import           Data.Serialize           (Serialize, decode, encode)
-import           Database.LMDB.Raw
-import           Foreign.ForeignPtr       (withForeignPtr)
-import           Foreign.Marshal.Utils    (copyBytes)
-import           Foreign.Ptr              (plusPtr)
+import Data.Serialize (Serialize, decode, encode)
+import Database.LMDB.Raw
+import Foreign.ForeignPtr (withForeignPtr)
+import Foreign.Marshal.Utils (copyBytes)
+import Foreign.Ptr (plusPtr)
 
 
 data DbException
@@ -33,7 +33,7 @@ data DbException
 instance Exception DbException
 
 data Db = MkDb
-  { dbEnv      :: MDB_env
+  { dbEnv :: MDB_env
   , dbDbiTrie  :: MDB_dbi
   }
 
@@ -45,9 +45,9 @@ mkDb dbDir mapSize = do
   mdb_env_set_maxdbs env 2
   mdb_env_open env dbDir []
   txn <- mdb_txn_begin env Nothing False
-  onException (do dbiTrie  <- mdb_dbi_open txn (Just "trie") [MDB_CREATE]
+  onException (do dbiTrie <- mdb_dbi_open txn (Just "trie") [MDB_CREATE]
                   mdb_txn_commit txn
-                  return MkDb { dbEnv      = env
+                  return MkDb { dbEnv = env
                               , dbDbiTrie  = dbiTrie
                               })
               (mdb_txn_abort txn)
@@ -55,7 +55,7 @@ mkDb dbDir mapSize = do
 close :: Db -> IO ()
 close db = do
   let env = dbEnv db
-  mdb_dbi_close env (dbDbiTrie  db)
+  mdb_dbi_close env (dbDbiTrie db)
   mdb_env_close env
 
 writeFlags :: MDB_WriteFlags
@@ -92,11 +92,11 @@ get :: (Serialize k, Serialize v)
 get txn dbi k
   = let
       (fptr, off, len) = BI.toForeignPtr (encode k)
-      de               = either (throwIO . SerializationException) pure . decode
+      de = either (throwIO . SerializationException) pure . decode
     in
       withForeignPtr fptr $ \ ptr ->
       do ret <- mdb_get txn dbi (MDB_val (fromIntegral len) (ptr `plusPtr` off))
-         bs  <- mapM mdbValToByteString ret
+         bs <- mapM mdbValToByteString ret
          mapM de bs
 
 del :: Serialize k

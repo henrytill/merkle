@@ -8,15 +8,15 @@ module Data.Hounds.PointerBlock
   , getChildren
   ) where
 
-import           Data.Array        (Array)
-import           Data.Array.IArray ((!), (//))
+import Data.Array (Array)
+import Data.Array.IArray ((!), (//))
 import qualified Data.Array.IArray as IArray
-import           Data.Ix           (Ix)
-import qualified Data.Ix           as Ix
-import           Data.Serialize
-import           Data.Word         (Word8)
+import Data.Ix (Ix)
+import qualified Data.Ix as Ix
+import Data.Serialize
+import Data.Word (Word8)
 
-import           Data.Hounds.Hash
+import Data.Hounds.Hash
 
 --
 -- Notes:
@@ -76,4 +76,4 @@ getChildren :: PointerBlock -> [(Word8, Hash)]
 getChildren = foldr f [] . IArray.assocs . unPointerBlock
   where
     f (idx, Just p) acc = (idx, p) : acc
-    f (_, Nothing)  acc = acc
+    f (_, Nothing) acc = acc

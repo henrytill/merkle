@@ -3,22 +3,22 @@
 
 module Data.Hounds.Trie.Properties (trieProperties) where
 
-import           Control.Concurrent                   (runInBoundThread)
-import           Control.Exception                    (finally)
-import qualified Data.ByteString                      as B
-import qualified Data.Map                             as Map
-import           Data.Serialize
-import           Test.QuickCheck                      (Arbitrary, Property)
-import           Test.QuickCheck.Instances.ByteString ()
-import qualified Test.QuickCheck.Monadic              as M
-import           Test.Tasty
-import           Test.Tasty.QuickCheck                (testProperty)
+import Control.Concurrent (runInBoundThread)
+import Control.Exception (finally)
+import qualified Data.ByteString as B
+import qualified Data.Map as Map
+import Data.Serialize
+import Test.QuickCheck (Arbitrary, Property)
+import Test.QuickCheck.Instances.ByteString ()
+import qualified Test.QuickCheck.Monadic as M
+import Test.Tasty
+import Test.Tasty.QuickCheck (testProperty)
 
-import qualified Data.Hounds.Context                  as Context
-import           Data.Hounds.Orphans                  ()
-import           Data.Hounds.Test
-import qualified Data.Hounds.Hash                     as Hash
-import qualified Data.Hounds.Trie                     as Trie
+import qualified Data.Hounds.Context as Context
+import qualified Data.Hounds.Hash as Hash
+import Data.Hounds.Orphans ()
+import Data.Hounds.Test
+import qualified Data.Hounds.Trie as Trie
 
 
 prop_roundTripSerialization :: (Arbitrary a, Eq a, Serialize a) => a -> Bool
@@ -68,7 +68,7 @@ prop_roundTrip :: forall k v.
               => Map.Map k v
               -> Property
 prop_roundTrip kvs = M.monadicIO $ do
-  let pairs  = Map.toList kvs
+  let pairs = Map.toList kvs
       values = snd <$> pairs
   (Just rets) <- M.run $ roundTrip pairs
   M.assert (values == rets)
@@ -82,7 +82,7 @@ roundTripRollback first second = runInBoundThread $ do
   finally (do root0 <- Context.fetchWorkingRoot context
               insertAll context first
               root1 <- Context.fetchWorkingRoot context
-              ret1  <- fetchAll context first
+              ret1 <- fetchAll context first
               insertAll context second
               root2 <- Context.fetchWorkingRoot context
               ret2f <- fetchAll context first
@@ -117,7 +117,7 @@ prop_roundTripRollback :: forall k v.
                        => Map.Map k v
                        -> Property
 prop_roundTripRollback kvs = M.monadicIO $ do
-  let pairs           = Map.toList kvs
+  let pairs = Map.toList kvs
       (first, second) = splitAt ((length pairs + 1) `div` 2) pairs
   _ <- M.run $ roundTripRollback first second
   M.assert True

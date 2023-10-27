@@ -2,16 +2,16 @@
 
 module Data.Hounds.Store where
 
-import           Control.Concurrent.MVar (newMVar, putMVar, readMVar, takeMVar)
-import           Control.Exception       (onException)
-import           Control.Monad           (void)
-import qualified Data.Map                as Map
-import qualified Data.Serialize          as S
+import Control.Concurrent.MVar (newMVar, putMVar, readMVar, takeMVar)
+import Control.Exception (onException)
+import Control.Monad (void)
+import qualified Data.Map as Map
+import qualified Data.Serialize as S
 
-import qualified Data.Hounds.Context     as Context
-import qualified Data.Hounds.Hash        as Hash
-import qualified Data.Hounds.Log         as Log
-import qualified Data.Hounds.Trie        as Trie
+import qualified Data.Hounds.Context as Context
+import qualified Data.Hounds.Hash as Hash
+import qualified Data.Hounds.Log as Log
+import qualified Data.Hounds.Trie as Trie
 
 
 put :: Ord k
@@ -20,25 +20,27 @@ put :: Ord k
     -> v
     -> IO Bool
 put context k v = do
-  let storeVar      = Context.contextStore context
-      countVar      = Context.contextCount context
-      currentLogVar = Context.contextLog   context
-      f _ new _     = new
-  store   <- takeMVar storeVar
-  count   <- takeMVar countVar
+  let storeVar = Context.contextStore context
+      countVar = Context.contextCount context
+      currentLogVar = Context.contextLog context
+      f _ new _ = new
+  store <- takeMVar storeVar
+  count <- takeMVar countVar
   currLog <- takeMVar currentLogVar
   onException (do let (old, newStore) = Map.insertLookupWithKey f k v store
                   putMVar storeVar newStore
                   case old of
-                    Nothing  -> do let logEntry = Log.MkLogEntry count Log.Insert k v
-                                   putMVar countVar      (succ count)
-                                   putMVar currentLogVar (logEntry : currLog)
-                                   return True
-                    (Just _) -> do putMVar countVar      count
-                                   putMVar currentLogVar currLog
-                                   return False)
-              (do putMVar storeVar      store
-                  putMVar countVar      count
+                    Nothing ->
+                      do let logEntry = Log.MkLogEntry count Log.Insert k v
+                         putMVar countVar (succ count)
+                         putMVar currentLogVar (logEntry : currLog)
+                         return True
+                    (Just _) ->
+                      do putMVar countVar count
+                         putMVar currentLogVar currLog
+                         return False)
+              (do putMVar storeVar store
+                  putMVar countVar count
                   putMVar currentLogVar currLog)
 
 del :: (Eq k, Eq v, Ord k)
@@ -46,27 +48,27 @@ del :: (Eq k, Eq v, Ord k)
     -> k
     -> IO Bool
 del context k = do
-  let storeVar      = Context.contextStore context
-      countVar      = Context.contextCount context
-      currentLogVar = Context.contextLog   context
-      f _ _         = Nothing
-  store   <- takeMVar storeVar
-  count   <- takeMVar countVar
+  let storeVar = Context.contextStore context
+      countVar = Context.contextCount context
+      currentLogVar = Context.contextLog context
+      f _ _ = Nothing
+  store <- takeMVar storeVar
+  count <- takeMVar countVar
   currLog <- takeMVar currentLogVar
   onException (do let (maybeOldValue, newStore) = Map.updateLookupWithKey f k store
                   putMVar storeVar newStore
                   case maybeOldValue of
                     Nothing ->
-                      do putMVar countVar      count
+                      do putMVar countVar count
                          putMVar currentLogVar currLog
                          return False
                     Just oldValue ->
                       do let logEntry = Log.MkLogEntry count Log.Delete k oldValue
-                         putMVar countVar      (succ count)
+                         putMVar countVar (succ count)
                          putMVar currentLogVar (logEntry : currLog)
                          return True)
-              (do putMVar storeVar      store
-                  putMVar countVar      count
+              (do putMVar storeVar store
+                  putMVar countVar count
                   putMVar currentLogVar currLog)
 
 get :: Ord k
@@ -79,7 +81,7 @@ checkpoint :: forall k v. (Ord k, Eq k, Eq v, S.Serialize k, S.Serialize v)
            => Context.Context k v
            -> IO Hash.Hash
 checkpoint context = do
-  let logVar         = Context.contextLog context
+  let logVar = Context.contextLog context
       workingRootVar = Context.contextWorkingRoot context
   logEntries <- takeMVar logVar
   mapM_ operate logEntries

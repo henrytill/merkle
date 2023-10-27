@@ -1,11 +1,11 @@
 module Data.Hounds.Hash.Properties (hashProperties) where
 
-import           Test.QuickCheck       (Arbitrary)
-import           Test.Tasty
-import           Test.Tasty.QuickCheck (testProperty)
+import Test.QuickCheck (Arbitrary)
+import Test.Tasty
+import Test.Tasty.QuickCheck (testProperty)
 
-import           Data.Hounds.Hash
-import           Data.Hounds.Orphans   ()
+import Data.Hounds.Hash
+import Data.Hounds.Orphans ()
 
 
 prop_roundTripShowRead :: (Eq a, Show a, Read a, Arbitrary a) => a -> Bool

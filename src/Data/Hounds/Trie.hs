@@ -1,22 +1,21 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TupleSections #-}
 
 module Data.Hounds.Trie where
 
-import           Control.Concurrent.MVar  (putMVar, readMVar, takeMVar)
-import           Control.Exception        (Exception, finally, onException,
-                                           throw, throwIO)
-import           Control.Monad            (foldM)
-import qualified Data.ByteString          as B
-import qualified Data.ByteString.Char8    as C
-import           Data.Serialize
-import           Data.Word                (Word8)
-import           Database.LMDB.Raw
+import Control.Concurrent.MVar (putMVar, readMVar, takeMVar)
+import Control.Exception (Exception, finally, onException, throw, throwIO)
+import Control.Monad (foldM)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as C
+import Data.Serialize
+import Data.Word (Word8)
+import Database.LMDB.Raw
 
-import qualified Data.Hounds.Context      as Context
-import qualified Data.Hounds.Db           as Db
-import           Data.Hounds.Hash
-import           Data.Hounds.PointerBlock
+import qualified Data.Hounds.Context as Context
+import qualified Data.Hounds.Db as Db
+import Data.Hounds.Hash
+import Data.Hounds.PointerBlock
 
 
 data TrieException
@@ -39,15 +38,15 @@ instance (Show k, Show v) => Show (Trie k v) where
 
 isNode :: Trie k v -> Bool
 isNode (Node _) = True
-isNode _        = False
+isNode _ = False
 
 isLeaf :: Trie k v -> Bool
 isLeaf (Leaf _ _) = True
-isLeaf _          = False
+isLeaf _ = False
 
 putTrie :: (Serialize k, Serialize v) => Putter (Trie k v)
 putTrie (Leaf k v) = putWord8 0 >> put k >> put v
-putTrie (Node pb)  = putWord8 1 >> put pb
+putTrie (Node pb) = putWord8 1 >> put pb
 
 getTrie :: (Serialize k, Serialize v) => Get (Trie k v)
 getTrie = do
@@ -78,15 +77,15 @@ store context hash trie = do
 
 lookup :: forall k v. (Eq k, Serialize k, Serialize v) => Context.Context k v -> k -> IO (Maybe v)
 lookup context k = do
-  let db             = Context.contextDb context
+  let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie        = Db.dbDbiTrie db
+      dbiTrie = Db.dbDbiTrie db
   rootHash <- readMVar currentRootVar
-  txn      <- mdb_txn_begin (Db.dbEnv db) Nothing True
+  txn <- mdb_txn_begin (Db.dbEnv db) Nothing True
   finally (do currRoot <- Db.get txn dbiTrie rootHash
               case currRoot of
                 Just root -> go txn dbiTrie 0 root
-                Nothing   -> return Nothing)
+                Nothing -> return Nothing)
           (mdb_txn_abort txn)
     where
       path :: B.ByteString
@@ -95,10 +94,10 @@ lookup context k = do
       go :: MDB_txn -> MDB_dbi -> Int -> Trie k v -> IO (Maybe v)
       go txn dbi depth (Node pb)
         = case index pb (fromIntegral (B.index path depth)) of
-            Nothing   -> return Nothing
+            Nothing -> return Nothing
             Just hash -> do maybeNode <- Db.get txn dbi hash
                             case maybeNode of
-                              Nothing   -> throwIO (LookupException "no node at hash")
+                              Nothing -> throwIO (LookupException "no node at hash")
                               Just next -> go txn dbi (succ depth) next
       go _ _ _ (Leaf lk lv)
         = if k == lk
@@ -153,15 +152,15 @@ insertTrie txn dbi
 
 insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
 insert context k v = do
-  let db             = Context.contextDb context
+  let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie        = Db.dbDbiTrie db
+      dbiTrie = Db.dbDbiTrie db
   rootHash <- takeMVar currentRootVar
-  txn      <- mdb_txn_begin (Db.dbEnv db) Nothing False
+  txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException (do (Just currRoot) <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
                   -- First, we create the new leaf, hash it, and persist it
-                  let newLeaf       = Leaf k v
-                      newLeafHash   = hashTrie newLeaf
+                  let newLeaf = Leaf k v
+                      newLeafHash = hashTrie newLeaf
                       encodedKeyNew = encode k
                   Db.putOrThrow txn dbiTrie newLeafHash newLeaf (InsertException "persisting newLeaf failed")
                   -- Now, we collect a list of our new leaf's existing parents
@@ -172,25 +171,25 @@ insert context k v = do
                          putMVar currentRootVar rootHash
                     existingLeaf@(Leaf ek _) ->
                       do let encodedKeyExisting = encode ek
-                             sharedPrefix       = commonPrefix encodedKeyNew encodedKeyExisting
+                             sharedPrefix = commonPrefix encodedKeyNew encodedKeyExisting
                              sharedPrefixLength = length sharedPrefix
-                             sharedPath         = reverse (drop (length parents) sharedPrefix)
-                             newLeafIndex       = B.index encodedKeyNew      sharedPrefixLength
+                             sharedPath = reverse (drop (length parents) sharedPrefix)
+                             newLeafIndex = B.index encodedKeyNew sharedPrefixLength
                              existingLeafIndex  = B.index encodedKeyExisting sharedPrefixLength
-                             hd :: Trie k v     = Node $ update mkPointerBlock [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just (hashTrie existingLeaf))]
-                             empty :: Trie k v  = Node mkPointerBlock
-                             emptys             = fmap (, empty) sharedPath
-                             nodes              = emptys ++ parents
-                             rehashedNodes      = rehash hd nodes
+                             hd :: Trie k v = Node $ update mkPointerBlock [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just (hashTrie existingLeaf))]
+                             empty :: Trie k v = Node mkPointerBlock
+                             emptys = fmap (, empty) sharedPath
+                             nodes = emptys ++ parents
+                             rehashedNodes = rehash hd nodes
                          newRootHash <- insertTrie txn dbiTrie rehashedNodes
                          mdb_txn_commit txn
                          putMVar currentRootVar newRootHash
                     Node pb ->
-                      do let pathLength     = length parents
-                             newLeafIndex   = B.index encodedKeyNew pathLength
+                      do let pathLength = length parents
+                             newLeafIndex = B.index encodedKeyNew pathLength
                              hd :: Trie k v = Node $ update pb [(newLeafIndex, Just newLeafHash)]
-                             nodes          = parents
-                             rehashedNodes  = rehash hd nodes
+                             nodes = parents
+                             rehashedNodes = rehash hd nodes
                          newRootHash <- insertTrie txn dbiTrie rehashedNodes
                          mdb_txn_commit txn
                          putMVar currentRootVar newRootHash)
@@ -206,14 +205,14 @@ deleteLeaf _ _ [(byte, Node pb)]
   = return (Node $ update pb [(byte, Nothing)], [])
 deleteLeaf txn dbi ((byte, Node pb):tl)
   = case getChildren pb of
-      []       -> throwIO (DeleteException "(deleteLeaf) no children")
-      [_]      -> deleteLeaf txn dbi tl
+      [] -> throwIO (DeleteException "(deleteLeaf) no children")
+      [_] -> deleteLeaf txn dbi tl
       c@[_, _] -> do otherHash <- getOtherHash byte c
                      otherNode <- Db.getOrThrow txn dbi otherHash (DeleteException "(deleteLeaf) could not get otherHash") :: IO (Trie k v)
                      case otherNode of
-                       Node _   -> return updated
+                       Node _ -> return updated
                        Leaf _ _ -> propagateLeafUpward txn dbi otherHash tl
-      _        -> return updated
+      _ -> return updated
   where
     updated = (Node $ update pb [(byte, Nothing)], tl)
     getOtherHash b c = case [child | (cByte, child) <- c, cByte /= b] of
@@ -232,7 +231,7 @@ propagateLeafUpward _ _ hash [(byte, Node pb)]
   = return (Node $ update pb [(byte, Just hash)], [])
 propagateLeafUpward txn dbi hash ((byte, Node pb):tl)
   = case getChildren pb of
-      []  -> throwIO (DeleteException "(propagateLeafUpward) no Children")
+      [] -> throwIO (DeleteException "(propagateLeafUpward) no Children")
       [_] -> propagateLeafUpward txn dbi hash tl
       _   -> return (Node $ update pb [(byte, Just hash)], tl)
 propagateLeafUpward _ _ _ _
@@ -240,10 +239,10 @@ propagateLeafUpward _ _ _ _
 
 delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO Bool
 delete context k v = do
-  let db             = Context.contextDb context
+  let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie        = Db.dbDbiTrie db
-      expectedLeaf   = Leaf k v
+      dbiTrie = Db.dbDbiTrie db
+      expectedLeaf = Leaf k v
   rootHash <- takeMVar currentRootVar
   txn      <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException (do (Just node) <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))

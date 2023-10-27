@@ -30,8 +30,7 @@ initTempEnv = do
     then return context
     else throwIO Db.PutException
 
-data TestKeyException
-  = InvalidSizeException
+data TestKeyException = InvalidSizeException
   deriving Show
 
 instance Exception TestKeyException

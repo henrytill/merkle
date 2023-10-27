@@ -14,11 +14,7 @@ import qualified Data.Hounds.Log as Log
 import qualified Data.Hounds.Trie as Trie
 
 
-put :: Ord k
-    => Context.Context k v
-    -> k
-    -> v
-    -> IO Bool
+put :: Ord k => Context.Context k v -> k -> v -> IO Bool
 put context k v = do
   let storeVar = Context.contextStore context
       countVar = Context.contextCount context
@@ -43,10 +39,7 @@ put context k v = do
                   putMVar countVar count
                   putMVar currentLogVar currLog)
 
-del :: (Eq k, Eq v, Ord k)
-    => Context.Context k v
-    -> k
-    -> IO Bool
+del :: (Eq k, Eq v, Ord k) => Context.Context k v -> k -> IO Bool
 del context k = do
   let storeVar = Context.contextStore context
       countVar = Context.contextCount context
@@ -71,15 +64,13 @@ del context k = do
                   putMVar countVar count
                   putMVar currentLogVar currLog)
 
-get :: Ord k
-    => Context.Context k v
-    -> k
-    -> IO (Maybe v)
+get :: Ord k => Context.Context k v -> k -> IO (Maybe v)
 get context k = Map.lookup k <$> readMVar (Context.contextStore context)
 
-checkpoint :: forall k v. (Ord k, Eq k, Eq v, S.Serialize k, S.Serialize v)
-           => Context.Context k v
-           -> IO Hash.Hash
+checkpoint
+  :: forall k v. (Ord k, Eq k, Eq v, S.Serialize k, S.Serialize v)
+  => Context.Context k v
+  -> IO Hash.Hash
 checkpoint context = do
   let logVar = Context.contextLog context
       workingRootVar = Context.contextWorkingRoot context
@@ -87,10 +78,10 @@ checkpoint context = do
   mapM_ operate logEntries
   putMVar logVar []
   readMVar workingRootVar
-    where
-      operate :: Log.LogEntry k v -> IO ()
-      operate (Log.MkLogEntry _ Log.Insert key value) = Trie.insert context key value
-      operate (Log.MkLogEntry _ Log.Delete key value) = void (Trie.delete context key value)
+  where
+    operate :: Log.LogEntry k v -> IO ()
+    operate (Log.MkLogEntry _ Log.Insert key value) = Trie.insert context key value
+    operate (Log.MkLogEntry _ Log.Delete key value) = void (Trie.delete context key value)
 
 reset :: Context.Context k v -> Hash.Hash -> IO (Context.Context k v)
 reset context hash = do

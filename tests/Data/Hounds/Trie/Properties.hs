@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-unused-local-binds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Data.Hounds.Trie.Properties (trieProperties) where
@@ -24,59 +23,65 @@ import qualified Data.Hounds.Trie as Trie
 prop_roundTripSerialization :: (Arbitrary a, Eq a, Serialize a) => a -> Bool
 prop_roundTripSerialization t = decode (encode t) == Right t
 
-insertAll :: (Eq k, Eq v, Serialize k, Serialize v, Foldable t)
-          => Context.Context k v
-          -> t (k, v)
-          -> IO ()
+insertAll
+  :: (Eq k, Eq v, Serialize k, Serialize v, Foldable t)
+  => Context.Context k v
+  -> t (k, v)
+  -> IO ()
 insertAll context = mapM_ (uncurry $ Trie.insert context)
 
-deleteAll :: (Eq k, Eq v, Serialize k, Serialize v, Foldable t, Show k, Show v)
-          => Context.Context k v
-          -> t (k, v)
-          -> IO ()
+deleteAll
+  :: (Eq k, Eq v, Serialize k, Serialize v, Foldable t, Show k, Show v)
+  => Context.Context k v
+  -> t (k, v)
+  -> IO ()
 deleteAll context = mapM_ (uncurry $ Trie.delete context)
 
-fetchAll :: (Eq k, Serialize k, Serialize v, Eq k, Traversable t)
-         => Context.Context k v
-         -> t (k, v)
-         -> IO (t (Maybe v))
+fetchAll
+  :: (Eq k, Serialize k, Serialize v, Eq k, Traversable t)
+  => Context.Context k v
+  -> t (k, v)
+  -> IO (t (Maybe v))
 fetchAll context = mapM (Trie.lookup context . fst)
 
 data RResult k v = MkRResult Hash.Hash [[Maybe v]]
   deriving (Eq, Show)
 
-roundTrip :: forall k v. (Eq k, Eq v, Serialize k , Serialize v)
-          => [(k, v)]
-          -> IO (Maybe [v])
+roundTrip
+  :: forall k v. (Eq k, Eq v, Serialize k , Serialize v)
+  => [(k, v)]
+  -> IO (Maybe [v])
 roundTrip pairs = runInBoundThread $ do
   context <- initTempEnv
   finally (do insertAll context pairs
               sequence <$> fetchAll context pairs)
           (Context.close context)
 
-prop_roundTrip :: forall k v.
-                 ( Arbitrary k
-                 , Arbitrary v
-                 , Eq k
-                 , Eq v
-                 , Serialize k
-                 , Serialize v
-                 , Show k
-                 , Show v
-                 , Ord k
-                 )
-              => Map.Map k v
-              -> Property
+prop_roundTrip
+  :: forall k v.
+     ( Arbitrary k
+     , Arbitrary v
+     , Eq k
+     , Eq v
+     , Serialize k
+     , Serialize v
+     , Show k
+     , Show v
+     , Ord k
+     )
+  => Map.Map k v
+  -> Property
 prop_roundTrip kvs = M.monadicIO $ do
   let pairs = Map.toList kvs
       values = snd <$> pairs
   (Just rets) <- M.run $ roundTrip pairs
   M.assert (values == rets)
 
-roundTripRollback :: forall k v. (Eq k, Eq v, Serialize k , Serialize v, Show k, Show v)
-                  => [(k, v)]
-                  -> [(k, v)]
-                  -> IO [RResult k v]
+roundTripRollback
+  :: forall k v. (Eq k, Eq v, Serialize k , Serialize v, Show k, Show v)
+  => [(k, v)]
+  -> [(k, v)]
+  -> IO [RResult k v]
 roundTripRollback first second = runInBoundThread $ do
   context <- initTempEnv
   finally (do root0 <- Context.fetchWorkingRoot context
@@ -103,19 +108,20 @@ roundTripRollback first second = runInBoundThread $ do
               return [res0, res1, res2, res3, res4])
           (Context.close context)
 
-prop_roundTripRollback :: forall k v.
-                          ( Arbitrary k
-                          , Arbitrary v
-                          , Eq k
-                          , Eq v
-                          , Serialize k
-                          , Serialize v
-                          , Show k
-                          , Show v
-                          , Ord k
-                          )
-                       => Map.Map k v
-                       -> Property
+prop_roundTripRollback
+  :: forall k v.
+     ( Arbitrary k
+     , Arbitrary v
+     , Eq k
+     , Eq v
+     , Serialize k
+     , Serialize v
+     , Show k
+     , Show v
+     , Ord k
+     )
+  => Map.Map k v
+  -> Property
 prop_roundTripRollback kvs = M.monadicIO $ do
   let pairs = Map.toList kvs
       (first, second) = splitAt ((length pairs + 1) `div` 2) pairs

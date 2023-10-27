@@ -34,7 +34,7 @@ data Trie k v
 
 instance (Show k, Show v) => Show (Trie k v) where
   show (Leaf k v) = "Leaf " ++ show k ++ " " ++ show v
-  show (Node pb)  = "Node " ++ show (getChildren pb)
+  show (Node pb) = "Node " ++ show (getChildren pb)
 
 isNode :: Trie k v -> Bool
 isNode (Node _) = True
@@ -92,60 +92,55 @@ lookup context k = do
       path = encode k
 
       go :: MDB_txn -> MDB_dbi -> Int -> Trie k v -> IO (Maybe v)
-      go txn dbi depth (Node pb)
-        = case index pb (fromIntegral (B.index path depth)) of
-            Nothing -> return Nothing
-            Just hash -> do maybeNode <- Db.get txn dbi hash
-                            case maybeNode of
-                              Nothing -> throwIO (LookupException "no node at hash")
-                              Just next -> go txn dbi (succ depth) next
-      go _ _ _ (Leaf lk lv)
-        = if k == lk
-            then return (Just lv)
-            else return Nothing
+      go txn dbi depth (Node pb) =
+        case index pb (fromIntegral (B.index path depth)) of
+          Nothing -> return Nothing
+          Just hash -> do maybeNode <- Db.get txn dbi hash
+                          case maybeNode of
+                            Nothing -> throwIO (LookupException "no node at hash")
+                            Just next -> go txn dbi (succ depth) next
+      go _ _ _ (Leaf lk lv) =
+        if k == lk
+        then return (Just lv)
+        else return Nothing
 
-getParents :: forall k v. (Serialize k, Serialize v)
-           => MDB_txn
-           -> MDB_dbi
-           -> B.ByteString
-           -> Int
-           -> Trie k v
-           -> [(Word8, Trie k v)]
-           -> IO (Trie k v, [(Word8, Trie k v)])
-getParents txn dbi path offset curr@(Node pb) acc
-  = let
-      byte = B.index path offset
-    in
-      case index pb (fromIntegral byte) of
-        Just nextHash ->
-          do next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
-             getParents txn dbi path (succ offset) next ((byte, curr):acc)
-        Nothing ->
-          return (curr, acc)
-getParents _ _ _ _ leaf acc
-  = return (leaf, acc)
+getParents
+  :: forall k v. (Serialize k, Serialize v)
+  => MDB_txn
+  -> MDB_dbi
+  -> B.ByteString
+  -> Int
+  -> Trie k v
+  -> [(Word8, Trie k v)]
+  -> IO (Trie k v, [(Word8, Trie k v)])
+getParents txn dbi path offset curr@(Node pb) acc =
+  case index pb (fromIntegral byte) of
+    Just nextHash ->
+      do next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
+         getParents txn dbi path (succ offset) next ((byte, curr):acc)
+    Nothing ->
+      return (curr, acc)
+  where byte = B.index path offset
+getParents _ _ _ _ leaf acc =
+  return (leaf, acc)
 
 commonPrefix :: B.ByteString -> B.ByteString -> [Word8]
 commonPrefix a b = map fst . takeWhile (uncurry (==)) $ B.zip a b
 
-rehash :: forall k v. (Serialize k, Serialize v)
-       => Trie k v
-       -> [(Word8, Trie k v)]
-       -> [(Hash, Trie k v)]
-rehash trie
-  = scanl f (hashTrie trie, trie)
+rehash
+  :: forall k v. (Serialize k, Serialize v)
+  => Trie k v
+  -> [(Word8, Trie k v)]
+  -> [(Hash, Trie k v)]
+rehash trie = scanl f (hashTrie trie, trie)
   where
-    f (lastHash, _) (offset, Node pb)
-      = let
-          node :: Trie k v = Node $ update pb [(offset, Just lastHash)]
-        in
-          (hashTrie node, node)
-    f _ _
-      = throw RehashException
+    f (lastHash, _) (offset, Node pb) =
+      let node :: Trie k v = Node $ update pb [(offset, Just lastHash)]
+      in (hashTrie node, node)
+    f _ _ = throw RehashException
 
 insertTrie :: forall k v. (Serialize k, Serialize v) => MDB_txn -> MDB_dbi -> [(Hash, Trie k v)] -> IO Hash
-insertTrie txn dbi
-  = foldM inserter (mkHash (C.pack "initial"))
+insertTrie txn dbi = foldM inserter (mkHash (C.pack "initial"))
   where
     inserter :: Hash -> (Hash, Trie k v) -> IO Hash
     inserter _ (hash, trie) = Db.putOrThrow txn dbi hash trie (InsertException "(insertTrie) could not insert") >> return hash
@@ -196,46 +191,48 @@ insert context k v = do
               (do mdb_txn_abort txn
                   putMVar currentRootVar rootHash)
 
-deleteLeaf :: forall k v. (Serialize k, Serialize v)
-           => MDB_txn
-           -> MDB_dbi
-           -> [(Word8, Trie k v)]
-           -> IO (Trie k v, [(Word8, Trie k v)])
-deleteLeaf _ _ [(byte, Node pb)]
-  = return (Node $ update pb [(byte, Nothing)], [])
-deleteLeaf txn dbi ((byte, Node pb):tl)
-  = case getChildren pb of
-      [] -> throwIO (DeleteException "(deleteLeaf) no children")
-      [_] -> deleteLeaf txn dbi tl
-      c@[_, _] -> do otherHash <- getOtherHash byte c
-                     otherNode <- Db.getOrThrow txn dbi otherHash (DeleteException "(deleteLeaf) could not get otherHash") :: IO (Trie k v)
-                     case otherNode of
-                       Node _ -> return updated
-                       Leaf _ _ -> propagateLeafUpward txn dbi otherHash tl
-      _ -> return updated
+deleteLeaf
+  :: forall k v. (Serialize k, Serialize v)
+  => MDB_txn
+  -> MDB_dbi
+  -> [(Word8, Trie k v)]
+  -> IO (Trie k v, [(Word8, Trie k v)])
+deleteLeaf _ _ [(byte, Node pb)] =
+  return (Node $ update pb [(byte, Nothing)], [])
+deleteLeaf txn dbi ((byte, Node pb):tl) =
+  case getChildren pb of
+    [] -> throwIO (DeleteException "(deleteLeaf) no children")
+    [_] -> deleteLeaf txn dbi tl
+    c@[_, _] -> do otherHash <- getOtherHash byte c
+                   otherNode <- Db.getOrThrow txn dbi otherHash (DeleteException "(deleteLeaf) could not get otherHash") :: IO (Trie k v)
+                   case otherNode of
+                     Node _ -> return updated
+                     Leaf _ _ -> propagateLeafUpward txn dbi otherHash tl
+    _ -> return updated
   where
     updated = (Node $ update pb [(byte, Nothing)], tl)
     getOtherHash b c = case [child | (cByte, child) <- c, cByte /= b] of
       [x] -> return x
       _   -> throwIO (DeleteException "(deleteLeaf) could not produce otherHash")
-deleteLeaf _ _ _
-  = throwIO (DeleteException "(deleteLeaf) shit happened")
+deleteLeaf _ _ _ =
+  throwIO (DeleteException "(deleteLeaf) shit happened")
 
-propagateLeafUpward :: forall k v. (Serialize k, Serialize v)
-                    => MDB_txn
-                    -> MDB_dbi
-                    -> Hash
-                    -> [(Word8, Trie k v)]
-                    -> IO (Trie k v, [(Word8, Trie k v)])
-propagateLeafUpward _ _ hash [(byte, Node pb)]
-  = return (Node $ update pb [(byte, Just hash)], [])
-propagateLeafUpward txn dbi hash ((byte, Node pb):tl)
-  = case getChildren pb of
-      [] -> throwIO (DeleteException "(propagateLeafUpward) no Children")
-      [_] -> propagateLeafUpward txn dbi hash tl
-      _   -> return (Node $ update pb [(byte, Just hash)], tl)
-propagateLeafUpward _ _ _ _
-  = throwIO (DeleteException "(propagateLeafUpward) shit happened")
+propagateLeafUpward
+  :: forall k v. (Serialize k, Serialize v)
+  => MDB_txn
+  -> MDB_dbi
+  -> Hash
+  -> [(Word8, Trie k v)]
+  -> IO (Trie k v, [(Word8, Trie k v)])
+propagateLeafUpward _ _ hash [(byte, Node pb)] =
+  return (Node $ update pb [(byte, Just hash)], [])
+propagateLeafUpward txn dbi hash ((byte, Node pb) : tl) =
+  case getChildren pb of
+    [] -> throwIO (DeleteException "(propagateLeafUpward) no Children")
+    [_] -> propagateLeafUpward txn dbi hash tl
+    _   -> return (Node $ update pb [(byte, Just hash)], tl)
+propagateLeafUpward _ _ _ _ =
+  throwIO (DeleteException "(propagateLeafUpward) shit happened")
 
 delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO Bool
 delete context k v = do
@@ -244,7 +241,7 @@ delete context k v = do
       dbiTrie = Db.dbDbiTrie db
       expectedLeaf = Leaf k v
   rootHash <- takeMVar currentRootVar
-  txn      <- mdb_txn_begin (Db.dbEnv db) Nothing False
+  txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException (do (Just node) <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
                   (trie, dirtyParents) <- getParents txn dbiTrie (encode k) 0 node []
                   case trie of

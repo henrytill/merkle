@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -Wno-unused-matches   #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Data.Hounds.Trie.Tests (trieTests) where
 

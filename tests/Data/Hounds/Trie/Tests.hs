@@ -1,6 +1,3 @@
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-{-# OPTIONS_GHC -Wno-unused-matches   #-}
-
 module Data.Hounds.Trie.Tests (trieTests) where
 
 import Control.Concurrent (runInBoundThread)
@@ -136,7 +133,7 @@ insertInsertDeleteDeleteTest ioContext = runInBoundThread $ do
   ret6 <- Trie.lookup context key2
   assertEqual "root 4 did not equal root 0" root0 root4
   assertEqual "returned value 5 was not Nothing" Nothing ret5
-  assertEqual "returned value 6 was not Nothing" Nothing ret4
+  assertEqual "returned value 6 was not Nothing" Nothing ret6
 
 duplicateInsertsLookupTest :: IO TestContext -> Assertion
 duplicateInsertsLookupTest ioContext = runInBoundThread $ do
@@ -196,7 +193,7 @@ rollbackRepeatTest ioContext = runInBoundThread $ do
   ret6 <- Trie.lookup context key2
   assertEqual "root 4 did not equal root 0" root0 root4
   assertEqual "returned value 5 was not Nothing" Nothing ret5
-  assertEqual "returned value 6 was not Nothing" Nothing ret4
+  assertEqual "returned value 6 was not Nothing" Nothing ret6
   -- === Rollback ===
   _ <- Context.setWorkingRoot context root2
   ret7 <- Trie.lookup context key1
@@ -216,7 +213,7 @@ rollbackRepeatTest ioContext = runInBoundThread $ do
   ret12 <- Trie.lookup context key2
   assertEqual "root 6 did not equal root 0" root0 root6
   assertEqual "returned value 11 was not Nothing" Nothing ret11
-  assertEqual "returned value 12 was not Nothing" Nothing ret4
+  assertEqual "returned value 12 was not Nothing" Nothing ret12
 
 rollbackForkTest :: IO TestContext -> Assertion
 rollbackForkTest ioContext = runInBoundThread $ do
@@ -245,7 +242,7 @@ rollbackForkTest ioContext = runInBoundThread $ do
   ret6 <- Trie.lookup context key2
   assertEqual "root 4 did not equal root 0" root0 root4
   assertEqual "returned value 5 was not Nothing" Nothing ret5
-  assertEqual "returned value 6 was not Nothing" Nothing ret4
+  assertEqual "returned value 6 was not Nothing" Nothing ret6
   -- === Rollback ===
   _ <- Context.setWorkingRoot context root2
   ret7 <- Trie.lookup context key1

@@ -2,13 +2,11 @@ module Data.Hounds.PointerBlock.Tests where
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
+import qualified Data.Hounds.Hash as Hash
+import qualified Data.Hounds.PointerBlock as PointerBlock
 import Data.Serialize
 import Test.Tasty
 import Test.Tasty.HUnit
-
-import qualified Data.Hounds.Hash as Hash
-import qualified Data.Hounds.PointerBlock as PointerBlock
-
 
 emptyPb :: PointerBlock.PointerBlock
 emptyPb = PointerBlock.mkPointerBlock
@@ -56,14 +54,16 @@ fullHashTest :: Assertion
 fullHashTest = assertEqual "The hash of a full PointerBlock was not the expected value" expected actual
   where
     expected = read "2b5e43a142c6b5e1b2ff614185d76d1e215b0efe627e124b4244006f4da4ed64"
-    actual = (Hash.mkHash . encode ) fullPb
+    actual = (Hash.mkHash . encode) fullPb
 
 pointerBlockTests :: TestTree
-pointerBlockTests = testGroup "PointerBlock unit tests"
-  [ testCase "Empty PointerBlock has the expected hash" emptyHashTest
-  , testCase "A serialized empty PointerBlock has the expected length" emptyLengthTest
-  , testCase "A serialized full PointerBlock has the expected length" fullLengthTest
-  , testCase "A PointerBlock with a known item at index 1 has the expected hash" index1Test
-  , testCase "A PointerBlock with a known item at index 42 has the expected hash" index42Test
-  , testCase "A full PointerBlock has the expected hash" fullHashTest
-  ]
+pointerBlockTests =
+  testGroup
+    "PointerBlock unit tests"
+    [ testCase "Empty PointerBlock has the expected hash" emptyHashTest,
+      testCase "A serialized empty PointerBlock has the expected length" emptyLengthTest,
+      testCase "A serialized full PointerBlock has the expected length" fullLengthTest,
+      testCase "A PointerBlock with a known item at index 1 has the expected hash" index1Test,
+      testCase "A PointerBlock with a known item at index 42 has the expected hash" index42Test,
+      testCase "A full PointerBlock has the expected hash" fullHashTest
+    ]

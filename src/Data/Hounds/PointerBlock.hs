@@ -1,28 +1,31 @@
 module Data.Hounds.PointerBlock
-  ( bounds
-  , PointerBlock(..)
-  , mkPointerBlock
-  , fillPointerBlock
-  , index
-  , update
-  , getChildren
-  ) where
+  ( bounds,
+    PointerBlock (..),
+    mkPointerBlock,
+    fillPointerBlock,
+    index,
+    update,
+    getChildren,
+  )
+where
 
 import Data.Array (Array)
 import Data.Array.IArray ((!), (//))
 import qualified Data.Array.IArray as IArray
+import Data.Hounds.Hash
 import Data.Ix (Ix)
 import qualified Data.Ix as Ix
 import Data.Serialize
 import Data.Word (Word8)
 
-import Data.Hounds.Hash
-
 --
 -- Notes:
 -- =====
+
 -- * Use skip blocks?
+
 -- * Possible Alternate encoding:
+
 --
 --   data PointerBlockHash
 --     = LeafHash Hash
@@ -37,11 +40,11 @@ import Data.Hounds.Hash
 bounds :: (Word8, Word8)
 bounds = (0, 255)
 
-newtype PointerBlock = MkPointerBlock { unPointerBlock :: Array Word8 (Maybe Hash) }
+newtype PointerBlock = MkPointerBlock {unPointerBlock :: Array Word8 (Maybe Hash)}
   deriving (Eq, Show)
 
 mkArray :: (Ix a) => (a -> b) -> (a, a) -> Array a b
-mkArray f bnds =  IArray.array bnds [(i, f i) | i <- Ix.range bnds]
+mkArray f bnds = IArray.array bnds [(i, f i) | i <- Ix.range bnds]
 
 mkPointerBlock :: PointerBlock
 mkPointerBlock = MkPointerBlock (mkArray (const Nothing) bounds)
@@ -52,12 +55,13 @@ fillPointerBlock maybeHash = MkPointerBlock (mkArray (const maybeHash) bounds)
 putPointerBlock :: Putter PointerBlock
 putPointerBlock = mapM_ (putMaybeOf put) . IArray.elems . unPointerBlock
 
-getArrayOf :: Ix i => (i, i) -> Get a -> Get (Array i a)
+getArrayOf :: (Ix i) => (i, i) -> Get a -> Get (Array i a)
 getArrayOf bnds m = IArray.listArray bnds <$> go [] (Ix.rangeSize bnds)
   where
     go as 0 = return (reverse as)
-    go as i = do x <- m
-                 x `seq` go (x : as) (i - 1)
+    go as i = do
+      x <- m
+      x `seq` go (x : as) (i - 1)
 
 getPointerBlock :: Get PointerBlock
 getPointerBlock = MkPointerBlock <$> getArrayOf bounds (getMaybeOf get)

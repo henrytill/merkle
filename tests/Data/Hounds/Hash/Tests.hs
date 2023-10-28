@@ -1,10 +1,9 @@
 module Data.Hounds.Hash.Tests (hashTests) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.Hounds.Hash as Hash
 import Test.Tasty
 import Test.Tasty.HUnit
-
-import qualified Data.Hounds.Hash as Hash
 
 helloHashTest :: Assertion
 helloHashTest = assertEqual "The hash of hello was not the expected value" expected actual
@@ -13,6 +12,8 @@ helloHashTest = assertEqual "The hash of hello was not the expected value" expec
     actual = (Hash.mkHash . C.pack) "hello"
 
 hashTests :: TestTree
-hashTests = testGroup "Hash unit tests"
-  [ testCase "hello hash" helloHashTest
-  ]
+hashTests =
+  testGroup
+    "Hash unit tests"
+    [ testCase "hello hash" helloHashTest
+    ]

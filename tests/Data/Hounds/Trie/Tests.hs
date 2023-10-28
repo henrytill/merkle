@@ -2,15 +2,14 @@ module Data.Hounds.Trie.Tests (trieTests) where
 
 import Control.Concurrent (runInBoundThread)
 import qualified Data.ByteString.Char8 as C
-import Test.Tasty
-import Test.Tasty.HUnit
-
 import qualified Data.Hounds.Context as Context
 import qualified Data.Hounds.Db as Db
 import qualified Data.Hounds.Hash as Hash
 import qualified Data.Hounds.PointerBlock as PointerBlock
 import Data.Hounds.Test
 import qualified Data.Hounds.Trie as Trie
+import Test.Tasty
+import Test.Tasty.HUnit
 
 emptyRootHashTest :: Assertion
 emptyRootHashTest = assertEqual "The empty root hash was not the expected value" expected actual
@@ -255,9 +254,9 @@ rollbackForkTest ioContext = runInBoundThread $ do
   ret10 <- Trie.lookup context key2
   ret11 <- Trie.lookup context key3
   assertNotEqual "root 5 did not equal root 4" root4 root5
-  assertEqual    "returned value 9 did not equal inserted value" (Just val1) ret9
-  assertEqual    "returned value 10 did not equal inserted value" (Just val2) ret10
-  assertEqual    "returned value 11 did not equal inserted value" (Just val3) ret11
+  assertEqual "returned value 9 did not equal inserted value" (Just val1) ret9
+  assertEqual "returned value 10 did not equal inserted value" (Just val2) ret10
+  assertEqual "returned value 11 did not equal inserted value" (Just val3) ret11
   _ <- Trie.insert context key4 val4
   root6 <- Context.fetchWorkingRoot context
   ret12 <- Trie.lookup context key1
@@ -271,40 +270,53 @@ rollbackForkTest ioContext = runInBoundThread $ do
   assertEqual "returned value 15 did not equal inserted value" (Just val4) ret15
 
 trieTests :: TestTree
-trieTests = testGroup "Trie unit tests"
-  [ testCase "empty root hash" emptyRootHashTest
-  , testCase "single leaf hash" oneLeafHashTest
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert" . insertLookupTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "two inserts" . twoInsertsTwoLookupsTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "three inserts" . threeInsertsThreeLookupsTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "four inserts" . fourInsertsFourLookupsTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "five inserts" . fiveInsertsFiveLookupsTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert, delete" . insertLookupDeleteLookupTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert, insert, delete, delete" . insertInsertDeleteDeleteTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "duplicate inserts" . duplicateInsertsLookupTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "insert, delete, delete again" . insertLookupDeleteLookupDeleteAgainLookupTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "rollback repeat test" . rollbackRepeatTest)
-  , withResource (runInBoundThread initTempEnv)
-                 (runInBoundThread . Db.close . Context.contextDb)
-                 (testCase "rollback fork test" . rollbackForkTest)
-  ]
+trieTests =
+  testGroup
+    "Trie unit tests"
+    [ testCase "empty root hash" emptyRootHashTest,
+      testCase "single leaf hash" oneLeafHashTest,
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "insert" . insertLookupTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "two inserts" . twoInsertsTwoLookupsTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "three inserts" . threeInsertsThreeLookupsTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "four inserts" . fourInsertsFourLookupsTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "five inserts" . fiveInsertsFiveLookupsTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "insert, delete" . insertLookupDeleteLookupTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "insert, insert, delete, delete" . insertInsertDeleteDeleteTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "duplicate inserts" . duplicateInsertsLookupTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "insert, delete, delete again" . insertLookupDeleteLookupDeleteAgainLookupTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "rollback repeat test" . rollbackRepeatTest),
+      withResource
+        (runInBoundThread initTempEnv)
+        (runInBoundThread . Db.close . Context.contextDb)
+        (testCase "rollback fork test" . rollbackForkTest)
+    ]

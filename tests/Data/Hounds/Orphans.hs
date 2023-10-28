@@ -3,16 +3,14 @@
 module Data.Hounds.Orphans where
 
 import qualified Data.Array as Array
-import qualified Data.Ix as Ix
-import Test.QuickCheck
-import Test.QuickCheck.Instances.Array ()
-import Test.QuickCheck.Instances.ByteString ()
-
 import Data.Hounds.Hash
 import Data.Hounds.PointerBlock
 import Data.Hounds.Test
 import Data.Hounds.Trie
-
+import qualified Data.Ix as Ix
+import Test.QuickCheck
+import Test.QuickCheck.Instances.Array ()
+import Test.QuickCheck.Instances.ByteString ()
 
 instance Arbitrary Hash where
   arbitrary = mkHash <$> arbitrary

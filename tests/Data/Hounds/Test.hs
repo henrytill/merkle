@@ -3,15 +3,13 @@ module Data.Hounds.Test where
 import Control.Exception (Exception, throw, throwIO)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import Data.Serialize
-import Data.Word (Word8)
-import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
-
 import qualified Data.Hounds.Context as Context
 import qualified Data.Hounds.Db as Db
 import qualified Data.Hounds.PointerBlock as PointerBlock
 import qualified Data.Hounds.Trie as Trie
-
+import Data.Serialize
+import Data.Word (Word8)
+import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 
 initTempDb :: IO Db.Db
 initTempDb = do
@@ -31,11 +29,11 @@ initTempEnv = do
     else throwIO Db.PutException
 
 data TestKeyException = InvalidSizeException
-  deriving Show
+  deriving (Show)
 
 instance Exception TestKeyException
 
-newtype TestKey = MkTestKey { unTestKey :: B.ByteString }
+newtype TestKey = MkTestKey {unTestKey :: B.ByteString}
   deriving (Eq, Ord)
 
 instance Show TestKey where
@@ -52,8 +50,9 @@ instance Serialize TestKey where
   get = getTestKey
 
 mkTestKey :: [Word8] -> TestKey
-mkTestKey ws | length ws == 4 = MkTestKey (B.pack ws)
-             | otherwise = throw InvalidSizeException
+mkTestKey ws
+  | length ws == 4 = MkTestKey (B.pack ws)
+  | otherwise = throw InvalidSizeException
 
 type TestContext = Context.Context TestKey B.ByteString
 

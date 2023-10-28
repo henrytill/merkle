@@ -5,12 +5,12 @@ module Data.Hounds.Store where
 import Control.Concurrent.MVar (newMVar, putMVar, readMVar, takeMVar)
 import Control.Exception (onException)
 import Control.Monad (void)
-import qualified Data.Hounds.Context as Context
-import qualified Data.Hounds.Hash as Hash
-import qualified Data.Hounds.Log as Log
-import qualified Data.Hounds.Trie as Trie
-import qualified Data.Map as Map
-import qualified Data.Serialize as S
+import Data.Hounds.Context qualified as Context
+import Data.Hounds.Hash qualified as Hash
+import Data.Hounds.Log qualified as Log
+import Data.Hounds.Trie qualified as Trie
+import Data.Map qualified as Map
+import Data.Serialize qualified as S
 
 put :: (Ord k) => Context.Context k v -> k -> v -> IO Bool
 put context k v = do

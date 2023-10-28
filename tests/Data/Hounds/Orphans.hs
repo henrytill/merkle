@@ -2,12 +2,12 @@
 
 module Data.Hounds.Orphans where
 
-import qualified Data.Array as Array
+import Data.Array qualified as Array
 import Data.Hounds.Hash
 import Data.Hounds.PointerBlock
 import Data.Hounds.Test
 import Data.Hounds.Trie
-import qualified Data.Ix as Ix
+import Data.Ix qualified as Ix
 import Test.QuickCheck
 import Test.QuickCheck.Instances.Array ()
 import Test.QuickCheck.Instances.ByteString ()

@@ -2,10 +2,10 @@ module Data.Hounds.Store.Tests (storeTests) where
 
 import Control.Concurrent (runInBoundThread)
 import Control.Concurrent.MVar (takeMVar)
-import qualified Data.Hounds.Context as Context
-import qualified Data.Hounds.Db as Db
-import qualified Data.Hounds.Log as Log
-import qualified Data.Hounds.Store as Store
+import Data.Hounds.Context qualified as Context
+import Data.Hounds.Db qualified as Db
+import Data.Hounds.Log qualified as Log
+import Data.Hounds.Store qualified as Store
 import Data.Hounds.Test
 import Test.Tasty
 import Test.Tasty.HUnit

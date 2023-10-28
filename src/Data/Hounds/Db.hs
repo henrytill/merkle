@@ -15,8 +15,8 @@ where
 
 import Control.Exception (Exception, onException, throwIO)
 import Control.Monad (unless)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Internal as BI
+import Data.ByteString qualified as B
+import Data.ByteString.Internal qualified as BI
 import Data.Serialize (Serialize, decode, encode)
 import Database.LMDB.Raw
 import Foreign.ForeignPtr (withForeignPtr)

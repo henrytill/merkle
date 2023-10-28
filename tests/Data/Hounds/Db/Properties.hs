@@ -2,14 +2,14 @@ module Data.Hounds.Db.Properties (dbProperties) where
 
 import Control.Concurrent (runInBoundThread)
 import Control.Exception (onException)
-import qualified Data.ByteString as B
-import qualified Data.Hounds.Db as Db
-import qualified Data.Hounds.Hash as Hash
+import Data.ByteString qualified as B
+import Data.Hounds.Db qualified as Db
+import Data.Hounds.Hash qualified as Hash
 import Data.Hounds.Orphans ()
 import Data.Hounds.Test
 import Database.LMDB.Raw
 import Test.QuickCheck (Property)
-import qualified Test.QuickCheck.Monadic as M
+import Test.QuickCheck.Monadic qualified as M
 import Test.Tasty
 import Test.Tasty.QuickCheck (testProperty)
 

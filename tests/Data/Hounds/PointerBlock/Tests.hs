@@ -1,9 +1,9 @@
 module Data.Hounds.PointerBlock.Tests where
 
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as C
-import qualified Data.Hounds.Hash as Hash
-import qualified Data.Hounds.PointerBlock as PointerBlock
+import Data.ByteString qualified as B
+import Data.ByteString.Char8 qualified as C
+import Data.Hounds.Hash qualified as Hash
+import Data.Hounds.PointerBlock qualified as PointerBlock
 import Data.Serialize
 import Test.Tasty
 import Test.Tasty.HUnit

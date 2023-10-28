@@ -11,10 +11,10 @@ where
 
 import Data.Array (Array)
 import Data.Array.IArray ((!), (//))
-import qualified Data.Array.IArray as IArray
+import Data.Array.IArray qualified as IArray
 import Data.Hounds.Hash
 import Data.Ix (Ix)
-import qualified Data.Ix as Ix
+import Data.Ix qualified as Ix
 import Data.Serialize
 import Data.Word (Word8)
 

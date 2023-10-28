@@ -1,7 +1,7 @@
 module Data.Hounds.Hash.Tests (hashTests) where
 
-import qualified Data.ByteString.Char8 as C
-import qualified Data.Hounds.Hash as Hash
+import Data.ByteString.Char8 qualified as C
+import Data.Hounds.Hash qualified as Hash
 import Test.Tasty
 import Test.Tasty.HUnit
 

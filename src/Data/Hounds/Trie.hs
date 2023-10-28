@@ -6,10 +6,10 @@ module Data.Hounds.Trie where
 import Control.Concurrent.MVar (putMVar, readMVar, takeMVar)
 import Control.Exception (Exception, finally, onException, throw, throwIO)
 import Control.Monad (foldM)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as C
-import qualified Data.Hounds.Context as Context
-import qualified Data.Hounds.Db as Db
+import Data.ByteString qualified as B
+import Data.ByteString.Char8 qualified as C
+import Data.Hounds.Context qualified as Context
+import Data.Hounds.Db qualified as Db
 import Data.Hounds.Hash
 import Data.Hounds.PointerBlock
 import Data.Serialize

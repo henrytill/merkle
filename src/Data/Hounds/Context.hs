@@ -1,10 +1,10 @@
 module Data.Hounds.Context where
 
 import Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar)
-import qualified Data.Hounds.Db as Db
-import qualified Data.Hounds.Hash as Hash
-import qualified Data.Hounds.Log as Log
-import qualified Data.Map as Map
+import Data.Hounds.Db qualified as Db
+import Data.Hounds.Hash qualified as Hash
+import Data.Hounds.Log qualified as Log
+import Data.Map qualified as Map
 import Data.Serialize
 import Data.Word (Word64)
 

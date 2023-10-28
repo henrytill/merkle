@@ -6,10 +6,10 @@ module Data.Hounds.Hash
   )
 where
 
-import qualified Crypto.Hash.BLAKE2.BLAKE2b as BLAKE2b
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.ByteString.Char8 as C
+import Crypto.Hash.BLAKE2.BLAKE2b qualified as BLAKE2b
+import Data.ByteString qualified as B
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Char8 qualified as C
 import Data.Serialize
 
 digestLength :: Int

@@ -1,12 +1,12 @@
 module Data.Hounds.Test where
 
 import Control.Exception (Exception, throw, throwIO)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as C
-import qualified Data.Hounds.Context as Context
-import qualified Data.Hounds.Db as Db
-import qualified Data.Hounds.PointerBlock as PointerBlock
-import qualified Data.Hounds.Trie as Trie
+import Data.ByteString qualified as B
+import Data.ByteString.Char8 qualified as C
+import Data.Hounds.Context qualified as Context
+import Data.Hounds.Db qualified as Db
+import Data.Hounds.PointerBlock qualified as PointerBlock
+import Data.Hounds.Trie qualified as Trie
 import Data.Serialize
 import Data.Word (Word8)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)

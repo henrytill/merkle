@@ -4,17 +4,17 @@ module Data.Hounds.Trie.Properties (trieProperties) where
 
 import Control.Concurrent (runInBoundThread)
 import Control.Exception (finally)
-import qualified Data.ByteString as B
-import qualified Data.Hounds.Context as Context
-import qualified Data.Hounds.Hash as Hash
+import Data.ByteString qualified as B
+import Data.Hounds.Context qualified as Context
+import Data.Hounds.Hash qualified as Hash
 import Data.Hounds.Orphans ()
 import Data.Hounds.Test
-import qualified Data.Hounds.Trie as Trie
-import qualified Data.Map as Map
+import Data.Hounds.Trie qualified as Trie
+import Data.Map qualified as Map
 import Data.Serialize
 import Test.QuickCheck (Arbitrary, Property)
 import Test.QuickCheck.Instances.ByteString ()
-import qualified Test.QuickCheck.Monadic as M
+import Test.QuickCheck.Monadic qualified as M
 import Test.Tasty
 import Test.Tasty.QuickCheck (testProperty)
 

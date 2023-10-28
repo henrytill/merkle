@@ -152,7 +152,8 @@ insertTrie :: forall k v. (Serialize k, Serialize v) => MDB_txn -> MDB_dbi -> [(
 insertTrie txn dbi = foldM inserter (mkHash (C.pack "initial"))
   where
     inserter :: Hash -> (Hash, Trie k v) -> IO Hash
-    inserter _ (hash, trie) = Db.putOrThrow txn dbi hash trie (InsertException "(insertTrie) could not insert") >> return hash
+    inserter _ (hash, trie) = Db.putOrThrow txn dbi hash trie exception >> return hash
+    exception = InsertException "(insertTrie) could not insert"
 
 insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
 insert context k v = do
@@ -184,8 +185,9 @@ insert context k v = do
                   sharedPath = reverse (drop (length parents) sharedPrefix)
                   newLeafIndex = B.index encodedKeyNew sharedPrefixLength
                   existingLeafIndex = B.index encodedKeyExisting sharedPrefixLength
-                  hd :: Trie k v = Node $ update mkPointerBlock [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just (hashTrie existingLeaf))]
-                  empty :: Trie k v = Node mkPointerBlock
+                  newPointerBlock = [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just (hashTrie existingLeaf))]
+                  hd = Node $ update mkPointerBlock newPointerBlock
+                  empty = Node mkPointerBlock
                   emptys = fmap (,empty) sharedPath
                   nodes = emptys ++ parents
                   rehashedNodes = rehash hd nodes
@@ -196,17 +198,14 @@ insert context k v = do
             do
               let pathLength = length parents
                   newLeafIndex = B.index encodedKeyNew pathLength
-                  hd :: Trie k v = Node $ update pb [(newLeafIndex, Just newLeafHash)]
+                  hd = Node $ update pb [(newLeafIndex, Just newLeafHash)]
                   nodes = parents
                   rehashedNodes = rehash hd nodes
               newRootHash <- insertTrie txn dbiTrie rehashedNodes
               mdb_txn_commit txn
               putMVar currentRootVar newRootHash
     )
-    ( do
-        mdb_txn_abort txn
-        putMVar currentRootVar rootHash
-    )
+    (mdb_txn_abort txn >> putMVar currentRootVar rootHash)
 
 deleteLeaf ::
   forall k v.
@@ -223,7 +222,7 @@ deleteLeaf txn dbi ((byte, Node pb) : tl) =
     [_] -> deleteLeaf txn dbi tl
     c@[_, _] -> do
       otherHash <- getOtherHash byte c
-      otherNode <- Db.getOrThrow txn dbi otherHash (DeleteException "(deleteLeaf) could not get otherHash") :: IO (Trie k v)
+      otherNode :: Trie k v <- Db.getOrThrow txn dbi otherHash (DeleteException "(deleteLeaf) could not get otherHash")
       case otherNode of
         Node _ -> return updated
         Leaf _ _ -> propagateLeafUpward txn dbi otherHash tl
@@ -286,7 +285,4 @@ delete context k v = do
               putMVar currentRootVar rootHash
               return False
     )
-    ( do
-        mdb_txn_abort txn
-        putMVar currentRootVar rootHash
-    )
+    (mdb_txn_abort txn >> putMVar currentRootVar rootHash)

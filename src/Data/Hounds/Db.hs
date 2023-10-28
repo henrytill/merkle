@@ -72,15 +72,12 @@ put :: (Serialize k, Serialize v) => MDB_txn -> MDB_dbi -> k -> v -> IO Bool
 put txn dbi k v =
   withForeignPtr kfptr $ \kptr ->
     withForeignPtr vfptr $ \vptr ->
-      mdb_put
-        writeFlags
-        txn
-        dbi
-        (MDB_val (fromIntegral klen) (kptr `plusPtr` koff))
-        (MDB_val (fromIntegral vlen) (vptr `plusPtr` voff))
+      mdb_put writeFlags txn dbi (key kptr) (val vptr)
   where
     (kfptr, koff, klen) = BI.toForeignPtr (encode k)
     (vfptr, voff, vlen) = BI.toForeignPtr (encode v)
+    key kptr = MDB_val (fromIntegral klen) (kptr `plusPtr` koff)
+    val vptr = MDB_val (fromIntegral vlen) (vptr `plusPtr` voff)
 
 get :: (Serialize k, Serialize v) => MDB_txn -> MDB_dbi -> k -> IO (Maybe v)
 get txn dbi k = withForeignPtr fptr $ \ptr ->

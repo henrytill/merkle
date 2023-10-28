@@ -17,7 +17,12 @@ data Context k v = MkContext
   }
 
 mkContext :: Db.Db -> Hash.Hash -> IO (Context k v)
-mkContext db hash = MkContext db <$> newMVar Map.empty <*> newMVar 0 <*> newMVar [] <*> newMVar hash
+mkContext db hash =
+  MkContext db
+    <$> newMVar Map.empty
+    <*> newMVar 0
+    <*> newMVar []
+    <*> newMVar hash
 
 fetchStore :: Context k v -> IO (Map.Map k v)
 fetchStore = readMVar . contextStore

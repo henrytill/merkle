@@ -76,9 +76,9 @@ store context hash trie = do
 lookup :: forall k v. (Eq k, Serialize k, Serialize v) => Context.Context k v -> k -> IO (Maybe v)
 lookup context k = do
   let db = Context.contextDb context
-      currentRootVar = Context.contextWorkingRoot context
+      rootVar = Context.contextWorkingRoot context
       dbi = Db.dbDbi db
-  rootHash <- readMVar currentRootVar
+  rootHash <- readMVar rootVar
   bracket (mdb_txn_begin (Db.dbEnv db) Nothing True) mdb_txn_abort $ \txn ->
     do
       currRoot <- Db.get txn dbi rootHash
@@ -149,22 +149,22 @@ insertTrie txn dbi = foldM inserter (mkHash (C.pack "initial"))
     exception = InsertException "(insertTrie) could not insert"
 
 abort :: MVar Hash -> Hash -> MDB_txn -> IO ()
-abort currentRootVar rootHash txn = do
+abort rootVar rootHash txn = do
   mdb_txn_abort txn
-  putMVar currentRootVar rootHash
+  putMVar rootVar rootHash
 
 commit :: MVar Hash -> Hash -> MDB_txn -> IO ()
-commit currentRootVar rootHash txn = do
+commit rootVar rootHash txn = do
   mdb_txn_commit txn
-  putMVar currentRootVar rootHash
+  putMVar rootVar rootHash
 
 insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
 insert context k v = do
   let db = Context.contextDb context
-      currentRootVar = Context.contextWorkingRoot context
+      rootVar = Context.contextWorkingRoot context
       dbi = Db.dbDbi db
-  rootHash <- takeMVar currentRootVar
-  bracketOnError (mdb_txn_begin (Db.dbEnv db) Nothing False) (abort currentRootVar rootHash) $ \txn ->
+  rootHash <- takeMVar rootVar
+  bracketOnError (mdb_txn_begin (Db.dbEnv db) Nothing False) (abort rootVar rootHash) $ \txn ->
     do
       (Just currRoot) <- Db.get txn dbi rootHash :: IO (Maybe (Trie k v))
       -- First, we create the new leaf, hash it, and persist it
@@ -177,7 +177,7 @@ insert context k v = do
       case tip of
         existingLeaf@(Leaf _ _)
           | existingLeaf == newLeaf ->
-              abort currentRootVar rootHash txn
+              abort rootVar rootHash txn
         existingLeaf@(Leaf ek _) ->
           do
             let encodedKeyExisting = encode ek
@@ -193,7 +193,7 @@ insert context k v = do
                 nodes = emptys ++ parents
                 rehashedNodes = rehash hd nodes
             newRootHash <- insertTrie txn dbi rehashedNodes
-            commit currentRootVar newRootHash txn
+            commit rootVar newRootHash txn
         Node pb ->
           do
             let pathLength = length parents
@@ -202,7 +202,7 @@ insert context k v = do
                 nodes = parents
                 rehashedNodes = rehash hd nodes
             newRootHash <- insertTrie txn dbi rehashedNodes
-            commit currentRootVar newRootHash txn
+            commit rootVar newRootHash txn
 
 deleteLeaf ::
   forall k v.
@@ -250,27 +250,27 @@ propagateLeafUpward _ _ =
 delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO Bool
 delete context k v = do
   let db = Context.contextDb context
-      currentRootVar = Context.contextWorkingRoot context
+      rootVar = Context.contextWorkingRoot context
       dbi = Db.dbDbi db
       expectedLeaf = Leaf k v
-  rootHash <- takeMVar currentRootVar
-  bracketOnError (mdb_txn_begin (Db.dbEnv db) Nothing False) (abort currentRootVar rootHash) $ \txn ->
+  rootHash <- takeMVar rootVar
+  bracketOnError (mdb_txn_begin (Db.dbEnv db) Nothing False) (abort rootVar rootHash) $ \txn ->
     do
       (Just node) <- Db.get txn dbi rootHash :: IO (Maybe (Trie k v))
       (trie, dirtyParents) <- getParents txn dbi (encode k) 0 node []
       case trie of
         Node pb | null (getChildren pb) ->
           do
-            abort currentRootVar rootHash txn
+            abort rootVar rootHash txn
             return False
         _ | trie == expectedLeaf ->
           do
             (hd, nodesToRehash) <- deleteLeaf txn dbi dirtyParents
             let rehashedNodes = rehash hd nodesToRehash
             newRootHash <- insertTrie txn dbi rehashedNodes
-            commit currentRootVar newRootHash txn
+            commit rootVar newRootHash txn
             return True
         _ ->
           do
-            abort currentRootVar rootHash txn
+            abort rootVar rootHash txn
             return False

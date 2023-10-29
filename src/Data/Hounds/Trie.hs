@@ -121,10 +121,9 @@ getParents ::
   IO (Trie k v, [(Word8, Trie k v)])
 getParents txn dbi path offset curr@(Node pb) acc =
   case index pb (fromIntegral byte) of
-    Just nextHash ->
-      do
-        next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
-        getParents txn dbi path (succ offset) next ((byte, curr) : acc)
+    Just nextHash -> do
+      next <- Db.getOrThrow txn dbi nextHash (LookupException "(getParents) value at nextHash must exist")
+      getParents txn dbi path (succ offset) next ((byte, curr) : acc)
     Nothing ->
       return (curr, acc)
   where

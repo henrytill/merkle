@@ -13,7 +13,4 @@ hashProperties :: TestTree
 hashProperties =
   testGroup
     "Hash property tests"
-    [ testProperty
-        "Round trip Show and Read instances for Hash"
-        (prop_roundTripShowRead :: Hash -> Bool)
-    ]
+    [testProperty "Round trip Show and Read instances for Hash" (prop_roundTripShowRead :: Hash -> Bool)]

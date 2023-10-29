@@ -40,5 +40,4 @@ dbProperties :: TestTree
 dbProperties =
   testGroup
     "Db property tests"
-    [ testProperty "Round trip leaves to db" prop_roundTripDb
-    ]
+    [testProperty "Round trip leaves to db" prop_roundTripDb]

@@ -15,5 +15,4 @@ hashTests :: TestTree
 hashTests =
   testGroup
     "Hash unit tests"
-    [ testCase "hello hash" helloHashTest
-    ]
+    [testCase "hello hash" helloHashTest]

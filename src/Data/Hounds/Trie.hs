@@ -80,14 +80,14 @@ lookup :: forall k v. (Eq k, Serialize k, Serialize v) => Context.Context k v ->
 lookup context k = do
   let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie = Db.dbDbi db
+      dbi = Db.dbDbi db
   rootHash <- readMVar currentRootVar
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing True
   finally
     ( do
-        currRoot <- Db.get txn dbiTrie rootHash
+        currRoot <- Db.get txn dbi rootHash
         case currRoot of
-          Just root -> go txn dbiTrie 0 root
+          Just root -> go txn dbi 0 root
           Nothing -> return Nothing
     )
     (mdb_txn_abort txn)
@@ -159,19 +159,19 @@ insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context 
 insert context k v = do
   let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie = Db.dbDbi db
+      dbi = Db.dbDbi db
   rootHash <- takeMVar currentRootVar
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException
     ( do
-        (Just currRoot) <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
+        (Just currRoot) <- Db.get txn dbi rootHash :: IO (Maybe (Trie k v))
         -- First, we create the new leaf, hash it, and persist it
         let newLeaf = Leaf k v
             newLeafHash = hashTrie newLeaf
             encodedKeyNew = encode k
-        Db.putOrThrow txn dbiTrie newLeafHash newLeaf (InsertException "persisting newLeaf failed")
+        Db.putOrThrow txn dbi newLeafHash newLeaf (InsertException "persisting newLeaf failed")
         -- Now, we collect a list of our new leaf's existing parents
-        (tip, parents) <- getParents txn dbiTrie encodedKeyNew 0 currRoot []
+        (tip, parents) <- getParents txn dbi encodedKeyNew 0 currRoot []
         case tip of
           existingLeaf@(Leaf _ _) | existingLeaf == newLeaf ->
             do
@@ -191,7 +191,7 @@ insert context k v = do
                   emptys = fmap (,empty) sharedPath
                   nodes = emptys ++ parents
                   rehashedNodes = rehash hd nodes
-              newRootHash <- insertTrie txn dbiTrie rehashedNodes
+              newRootHash <- insertTrie txn dbi rehashedNodes
               mdb_txn_commit txn
               putMVar currentRootVar newRootHash
           Node pb ->
@@ -201,7 +201,7 @@ insert context k v = do
                   hd = Node $ update pb [(newLeafIndex, Just newLeafHash)]
                   nodes = parents
                   rehashedNodes = rehash hd nodes
-              newRootHash <- insertTrie txn dbiTrie rehashedNodes
+              newRootHash <- insertTrie txn dbi rehashedNodes
               mdb_txn_commit txn
               putMVar currentRootVar newRootHash
     )
@@ -254,14 +254,14 @@ delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context 
 delete context k v = do
   let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie = Db.dbDbi db
+      dbi = Db.dbDbi db
       expectedLeaf = Leaf k v
   rootHash <- takeMVar currentRootVar
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException
     ( do
-        (Just node) <- Db.get txn dbiTrie rootHash :: IO (Maybe (Trie k v))
-        (trie, dirtyParents) <- getParents txn dbiTrie (encode k) 0 node []
+        (Just node) <- Db.get txn dbi rootHash :: IO (Maybe (Trie k v))
+        (trie, dirtyParents) <- getParents txn dbi (encode k) 0 node []
         case trie of
           Node pb | null (getChildren pb) ->
             do
@@ -270,9 +270,9 @@ delete context k v = do
               return False
           _ | trie == expectedLeaf ->
             do
-              (hd, nodesToRehash) <- deleteLeaf txn dbiTrie dirtyParents
+              (hd, nodesToRehash) <- deleteLeaf txn dbi dirtyParents
               let rehashedNodes = rehash hd nodesToRehash
-              newRootHash <- insertTrie txn dbiTrie rehashedNodes
+              newRootHash <- insertTrie txn dbi rehashedNodes
               mdb_txn_commit txn
               putMVar currentRootVar newRootHash
               return True

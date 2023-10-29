@@ -158,7 +158,7 @@ commit rootVar rootHash txn = do
   mdb_txn_commit txn
   putMVar rootVar rootHash
 
-insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
+insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO Bool
 insert context k v = do
   let db = Context.contextDb context
       rootVar = Context.contextWorkingRoot context
@@ -175,9 +175,10 @@ insert context k v = do
       -- Now, we collect a list of our new leaf's existing parents
       (tip, parents) <- getParents txn dbi encodedKeyNew 0 currRoot []
       case tip of
-        existingLeaf@(Leaf _ _)
-          | existingLeaf == newLeaf ->
-              abort rootVar rootHash txn
+        existingLeaf@(Leaf _ _) | existingLeaf == newLeaf ->
+          do
+            abort rootVar rootHash txn
+            return False
         existingLeaf@(Leaf ek _) ->
           do
             let encodedKeyExisting = encode ek
@@ -194,6 +195,7 @@ insert context k v = do
                 rehashedNodes = rehash hd nodes
             newRootHash <- insertTrie txn dbi rehashedNodes
             commit rootVar newRootHash txn
+            return True
         Node pb ->
           do
             let pathLength = length parents
@@ -203,6 +205,7 @@ insert context k v = do
                 rehashedNodes = rehash hd nodes
             newRootHash <- insertTrie txn dbi rehashedNodes
             commit rootVar newRootHash txn
+            return True
 
 deleteLeaf ::
   forall k v.

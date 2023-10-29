@@ -93,7 +93,7 @@ checkpoint context = do
   readMVar workingRootVar
   where
     operate :: Log.LogEntry k v -> IO ()
-    operate (Log.MkLogEntry _ Log.Insert key value) = Trie.insert context key value
+    operate (Log.MkLogEntry _ Log.Insert key value) = void (Trie.insert context key value)
     operate (Log.MkLogEntry _ Log.Delete key value) = void (Trie.delete context key value)
 
 reset :: Context.Context k v -> Hash.Hash -> IO (Context.Context k v)

@@ -225,7 +225,7 @@ deleteLeaf txn dbi ((byte, Node pb) : tl) =
       otherNode :: Trie k v <- Db.getOrThrow txn dbi otherHash (DeleteException "(deleteLeaf) could not get otherHash")
       case otherNode of
         Node _ -> return updated
-        Leaf _ _ -> propagateLeafUpward txn dbi otherHash tl
+        Leaf _ _ -> either throwIO return $ propagateLeafUpward otherHash tl
     _ -> return updated
   where
     updated = (Node $ update pb [(byte, Nothing)], tl)
@@ -236,22 +236,19 @@ deleteLeaf _ _ _ =
   throwIO (DeleteException "(deleteLeaf) shit happened")
 
 propagateLeafUpward ::
-  forall k v.
   (Serialize k, Serialize v) =>
-  MDB_txn ->
-  MDB_dbi ->
   Hash ->
   [(Word8, Trie k v)] ->
-  IO (Trie k v, [(Word8, Trie k v)])
-propagateLeafUpward _ _ hash [(byte, Node pb)] =
+  Either TrieException (Trie k v, [(Word8, Trie k v)])
+propagateLeafUpward hash [(byte, Node pb)] =
   return (Node $ update pb [(byte, Just hash)], [])
-propagateLeafUpward txn dbi hash ((byte, Node pb) : tl) =
+propagateLeafUpward hash ((byte, Node pb) : tl) =
   case getChildren pb of
-    [] -> throwIO (DeleteException "(propagateLeafUpward) no Children")
-    [_] -> propagateLeafUpward txn dbi hash tl
+    [] -> Left (DeleteException "(propagateLeafUpward) no Children")
+    [_] -> propagateLeafUpward hash tl
     _ -> return (Node $ update pb [(byte, Just hash)], tl)
-propagateLeafUpward _ _ _ _ =
-  throwIO (DeleteException "(propagateLeafUpward) shit happened")
+propagateLeafUpward _ _ =
+  Left (DeleteException "(propagateLeafUpward) shit happened")
 
 delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO Bool
 delete context k v = do

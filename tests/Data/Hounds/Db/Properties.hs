@@ -20,8 +20,8 @@ roundTripDb bs = runInBoundThread $ do
   onException
     ( do
         let hash = Hash.mkHash bs
-        _ <- Db.put txn (Db.dbDbiTrie db) hash bs
-        r <- Db.get txn (Db.dbDbiTrie db) hash
+        _ <- Db.put txn (Db.dbDbi db) hash bs
+        r <- Db.get txn (Db.dbDbi db) hash
         _ <- mdb_txn_commit txn
         _ <- Db.close db
         return r

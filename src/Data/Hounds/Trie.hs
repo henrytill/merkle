@@ -70,7 +70,7 @@ store context hash trie = do
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException
     ( do
-        succPut <- Db.put txn (Db.dbDbiTrie db) hash trie
+        succPut <- Db.put txn (Db.dbDbi db) hash trie
         mdb_txn_commit txn
         return succPut
     )
@@ -80,7 +80,7 @@ lookup :: forall k v. (Eq k, Serialize k, Serialize v) => Context.Context k v ->
 lookup context k = do
   let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie = Db.dbDbiTrie db
+      dbiTrie = Db.dbDbi db
   rootHash <- readMVar currentRootVar
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing True
   finally
@@ -159,7 +159,7 @@ insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context 
 insert context k v = do
   let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie = Db.dbDbiTrie db
+      dbiTrie = Db.dbDbi db
   rootHash <- takeMVar currentRootVar
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
   onException
@@ -254,7 +254,7 @@ delete :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context 
 delete context k v = do
   let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
-      dbiTrie = Db.dbDbiTrie db
+      dbiTrie = Db.dbDbi db
       expectedLeaf = Leaf k v
   rootHash <- takeMVar currentRootVar
   txn <- mdb_txn_begin (Db.dbEnv db) Nothing False

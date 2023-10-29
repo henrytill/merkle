@@ -34,7 +34,7 @@ instance Exception DbException
 
 data Db = MkDb
   { dbEnv :: MDB_env,
-    dbDbiTrie :: MDB_dbi
+    dbDbi :: MDB_dbi
   }
 
 mkDb :: FilePath -> Int -> IO Db
@@ -47,16 +47,16 @@ mkDb dbDir mapSize = do
   txn <- mdb_txn_begin dbEnv Nothing False
   onException
     ( do
-        dbDbiTrie <- mdb_dbi_open txn (Just "trie") [MDB_CREATE]
+        dbDbi <- mdb_dbi_open txn (Just "trie") [MDB_CREATE]
         mdb_txn_commit txn
-        return MkDb {dbEnv, dbDbiTrie}
+        return MkDb {dbEnv, dbDbi}
     )
     (mdb_txn_abort txn)
 
 close :: Db -> IO ()
 close db = do
   let env = dbEnv db
-  mdb_dbi_close env (dbDbiTrie db)
+  mdb_dbi_close env (dbDbi db)
   mdb_env_close env
 
 writeFlags :: MDB_WriteFlags

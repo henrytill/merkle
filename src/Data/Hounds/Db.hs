@@ -13,7 +13,7 @@ module Data.Hounds.Db
   )
 where
 
-import Control.Exception (Exception, onException, throwIO)
+import Control.Exception (Exception, bracketOnError, throwIO)
 import Control.Monad (unless)
 import Data.ByteString qualified as B
 import Data.ByteString.Internal qualified as BI
@@ -44,14 +44,11 @@ mkDb dbDir mapSize = do
   mdb_env_set_maxreaders dbEnv 126
   mdb_env_set_maxdbs dbEnv 2
   mdb_env_open dbEnv dbDir []
-  txn <- mdb_txn_begin dbEnv Nothing False
-  onException
-    ( do
-        dbDbi <- mdb_dbi_open txn (Just "trie") [MDB_CREATE]
-        mdb_txn_commit txn
-        return MkDb {dbEnv, dbDbi}
-    )
-    (mdb_txn_abort txn)
+  bracketOnError (mdb_txn_begin dbEnv Nothing False) mdb_txn_abort $ \txn ->
+    do
+      dbDbi <- mdb_dbi_open txn (Just "trie") [MDB_CREATE]
+      mdb_txn_commit txn
+      return MkDb {dbEnv, dbDbi}
 
 close :: Db -> IO ()
 close db = do

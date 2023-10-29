@@ -3,8 +3,8 @@
 
 module Data.Hounds.Trie where
 
-import Control.Concurrent.MVar (putMVar, readMVar, takeMVar)
-import Control.Exception (Exception, finally, onException, throw, throwIO)
+import Control.Concurrent.MVar (MVar, putMVar, readMVar, takeMVar)
+import Control.Exception (Exception, bracket, bracketOnError, throw, throwIO)
 import Control.Monad (foldM)
 import Data.ByteString qualified as B
 import Data.ByteString.Char8 qualified as C
@@ -67,14 +67,11 @@ hashTrie = mkHash . encode
 store :: (Serialize k, Serialize v) => Context.Context k v -> Hash -> Trie k v -> IO Bool
 store context hash trie = do
   let db = Context.contextDb context
-  txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
-  onException
-    ( do
-        succPut <- Db.put txn (Db.dbDbi db) hash trie
-        mdb_txn_commit txn
-        return succPut
-    )
-    (mdb_txn_abort txn)
+  bracketOnError (mdb_txn_begin (Db.dbEnv db) Nothing False) mdb_txn_abort $ \txn ->
+    do
+      succPut <- Db.put txn (Db.dbDbi db) hash trie
+      mdb_txn_commit txn
+      return succPut
 
 lookup :: forall k v. (Eq k, Serialize k, Serialize v) => Context.Context k v -> k -> IO (Maybe v)
 lookup context k = do
@@ -82,15 +79,12 @@ lookup context k = do
       currentRootVar = Context.contextWorkingRoot context
       dbi = Db.dbDbi db
   rootHash <- readMVar currentRootVar
-  txn <- mdb_txn_begin (Db.dbEnv db) Nothing True
-  finally
-    ( do
-        currRoot <- Db.get txn dbi rootHash
-        case currRoot of
-          Just root -> go txn dbi 0 root
-          Nothing -> return Nothing
-    )
-    (mdb_txn_abort txn)
+  bracket (mdb_txn_begin (Db.dbEnv db) Nothing True) mdb_txn_abort $ \txn ->
+    do
+      currRoot <- Db.get txn dbi rootHash
+      case currRoot of
+        Just root -> go txn dbi 0 root
+        Nothing -> return Nothing
   where
     path :: B.ByteString
     path = encode k
@@ -154,57 +148,61 @@ insertTrie txn dbi = foldM inserter (mkHash (C.pack "initial"))
     inserter _ (hash, trie) = Db.putOrThrow txn dbi hash trie exception >> return hash
     exception = InsertException "(insertTrie) could not insert"
 
+abort :: MVar Hash -> Hash -> MDB_txn -> IO ()
+abort currentRootVar rootHash txn = do
+  mdb_txn_abort txn
+  putMVar currentRootVar rootHash
+
+commit :: MVar Hash -> Hash -> MDB_txn -> IO ()
+commit currentRootVar rootHash txn = do
+  mdb_txn_commit txn
+  putMVar currentRootVar rootHash
+
 insert :: forall k v. (Serialize k, Serialize v, Eq k, Eq v) => Context.Context k v -> k -> v -> IO ()
 insert context k v = do
   let db = Context.contextDb context
       currentRootVar = Context.contextWorkingRoot context
       dbi = Db.dbDbi db
   rootHash <- takeMVar currentRootVar
-  txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
-  onException
-    ( do
-        (Just currRoot) <- Db.get txn dbi rootHash :: IO (Maybe (Trie k v))
-        -- First, we create the new leaf, hash it, and persist it
-        let newLeaf = Leaf k v
-            newLeafHash = hashTrie newLeaf
-            encodedKeyNew = encode k
-        Db.putOrThrow txn dbi newLeafHash newLeaf (InsertException "persisting newLeaf failed")
-        -- Now, we collect a list of our new leaf's existing parents
-        (tip, parents) <- getParents txn dbi encodedKeyNew 0 currRoot []
-        case tip of
-          existingLeaf@(Leaf _ _) | existingLeaf == newLeaf ->
-            do
-              mdb_txn_abort txn
-              putMVar currentRootVar rootHash
-          existingLeaf@(Leaf ek _) ->
-            do
-              let encodedKeyExisting = encode ek
-                  sharedPrefix = commonPrefix encodedKeyNew encodedKeyExisting
-                  sharedPrefixLength = length sharedPrefix
-                  sharedPath = reverse (drop (length parents) sharedPrefix)
-                  newLeafIndex = B.index encodedKeyNew sharedPrefixLength
-                  existingLeafIndex = B.index encodedKeyExisting sharedPrefixLength
-                  newPointerBlock = [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just (hashTrie existingLeaf))]
-                  hd = Node $ update mkPointerBlock newPointerBlock
-                  empty = Node mkPointerBlock
-                  emptys = fmap (,empty) sharedPath
-                  nodes = emptys ++ parents
-                  rehashedNodes = rehash hd nodes
-              newRootHash <- insertTrie txn dbi rehashedNodes
-              mdb_txn_commit txn
-              putMVar currentRootVar newRootHash
-          Node pb ->
-            do
-              let pathLength = length parents
-                  newLeafIndex = B.index encodedKeyNew pathLength
-                  hd = Node $ update pb [(newLeafIndex, Just newLeafHash)]
-                  nodes = parents
-                  rehashedNodes = rehash hd nodes
-              newRootHash <- insertTrie txn dbi rehashedNodes
-              mdb_txn_commit txn
-              putMVar currentRootVar newRootHash
-    )
-    (mdb_txn_abort txn >> putMVar currentRootVar rootHash)
+  bracketOnError (mdb_txn_begin (Db.dbEnv db) Nothing False) (abort currentRootVar rootHash) $ \txn ->
+    do
+      (Just currRoot) <- Db.get txn dbi rootHash :: IO (Maybe (Trie k v))
+      -- First, we create the new leaf, hash it, and persist it
+      let newLeaf = Leaf k v
+          newLeafHash = hashTrie newLeaf
+          encodedKeyNew = encode k
+      Db.putOrThrow txn dbi newLeafHash newLeaf (InsertException "persisting newLeaf failed")
+      -- Now, we collect a list of our new leaf's existing parents
+      (tip, parents) <- getParents txn dbi encodedKeyNew 0 currRoot []
+      case tip of
+        existingLeaf@(Leaf _ _)
+          | existingLeaf == newLeaf ->
+              abort currentRootVar rootHash txn
+        existingLeaf@(Leaf ek _) ->
+          do
+            let encodedKeyExisting = encode ek
+                sharedPrefix = commonPrefix encodedKeyNew encodedKeyExisting
+                sharedPrefixLength = length sharedPrefix
+                sharedPath = reverse (drop (length parents) sharedPrefix)
+                newLeafIndex = B.index encodedKeyNew sharedPrefixLength
+                existingLeafIndex = B.index encodedKeyExisting sharedPrefixLength
+                newPointerBlock = [(newLeafIndex, Just newLeafHash), (existingLeafIndex, Just (hashTrie existingLeaf))]
+                hd = Node $ update mkPointerBlock newPointerBlock
+                empty = Node mkPointerBlock
+                emptys = fmap (,empty) sharedPath
+                nodes = emptys ++ parents
+                rehashedNodes = rehash hd nodes
+            newRootHash <- insertTrie txn dbi rehashedNodes
+            commit currentRootVar newRootHash txn
+        Node pb ->
+          do
+            let pathLength = length parents
+                newLeafIndex = B.index encodedKeyNew pathLength
+                hd = Node $ update pb [(newLeafIndex, Just newLeafHash)]
+                nodes = parents
+                rehashedNodes = rehash hd nodes
+            newRootHash <- insertTrie txn dbi rehashedNodes
+            commit currentRootVar newRootHash txn
 
 deleteLeaf ::
   forall k v.
@@ -256,29 +254,23 @@ delete context k v = do
       dbi = Db.dbDbi db
       expectedLeaf = Leaf k v
   rootHash <- takeMVar currentRootVar
-  txn <- mdb_txn_begin (Db.dbEnv db) Nothing False
-  onException
-    ( do
-        (Just node) <- Db.get txn dbi rootHash :: IO (Maybe (Trie k v))
-        (trie, dirtyParents) <- getParents txn dbi (encode k) 0 node []
-        case trie of
-          Node pb | null (getChildren pb) ->
-            do
-              mdb_txn_abort txn
-              putMVar currentRootVar rootHash
-              return False
-          _ | trie == expectedLeaf ->
-            do
-              (hd, nodesToRehash) <- deleteLeaf txn dbi dirtyParents
-              let rehashedNodes = rehash hd nodesToRehash
-              newRootHash <- insertTrie txn dbi rehashedNodes
-              mdb_txn_commit txn
-              putMVar currentRootVar newRootHash
-              return True
-          _ ->
-            do
-              mdb_txn_abort txn
-              putMVar currentRootVar rootHash
-              return False
-    )
-    (mdb_txn_abort txn >> putMVar currentRootVar rootHash)
+  bracketOnError (mdb_txn_begin (Db.dbEnv db) Nothing False) (abort currentRootVar rootHash) $ \txn ->
+    do
+      (Just node) <- Db.get txn dbi rootHash :: IO (Maybe (Trie k v))
+      (trie, dirtyParents) <- getParents txn dbi (encode k) 0 node []
+      case trie of
+        Node pb | null (getChildren pb) ->
+          do
+            abort currentRootVar rootHash txn
+            return False
+        _ | trie == expectedLeaf ->
+          do
+            (hd, nodesToRehash) <- deleteLeaf txn dbi dirtyParents
+            let rehashedNodes = rehash hd nodesToRehash
+            newRootHash <- insertTrie txn dbi rehashedNodes
+            commit currentRootVar newRootHash txn
+            return True
+        _ ->
+          do
+            abort currentRootVar rootHash txn
+            return False

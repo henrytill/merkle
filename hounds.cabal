@@ -20,9 +20,7 @@ library
                      , Data.Hounds.Db
                      , Data.Hounds.Context
                      , Data.Hounds.Hash
-                     , Data.Hounds.Log
                      , Data.Hounds.PointerBlock
-                     , Data.Hounds.Store
                      , Data.Hounds.Trie
   -- other-extensions:
   build-depends:       base              >=4.10 && <5
@@ -46,7 +44,6 @@ test-suite tests
                      , Data.Hounds.Hash.Properties
                      , Data.Hounds.PointerBlock.Properties
                      , Data.Hounds.PointerBlock.Tests
-                     , Data.Hounds.Store.Tests
                      , Data.Hounds.Trie.Properties
                      , Data.Hounds.Trie.Tests
                      , Data.Hounds.Orphans

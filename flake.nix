@@ -11,7 +11,7 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, ... }:
-    let makeMerkle = system: { compiler ? "ghc928" }:
+    let makeMerkle = system: { compiler ? "ghc948" }:
       let pkgs = nixpkgs.legacyPackages.${system};
           systemDepends = [ pkgs.lmdb ];
           call = compiler: pkgs.haskell.packages.${compiler}.callCabal2nixWithOptions;

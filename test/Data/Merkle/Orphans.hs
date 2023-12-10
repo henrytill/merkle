@@ -1,13 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Data.Hounds.Orphans where
+module Data.Merkle.Orphans where
 
 import Data.Array qualified as Array
-import Data.Hounds.Hash
-import Data.Hounds.PointerBlock
-import Data.Hounds.Test
-import Data.Hounds.Trie
 import Data.Ix qualified as Ix
+import Data.Merkle.Hash
+import Data.Merkle.PointerBlock
+import Data.Merkle.Test
+import Data.Merkle.Trie
 import Test.QuickCheck
 import Test.QuickCheck.Instances.Array ()
 import Test.QuickCheck.Instances.ByteString ()

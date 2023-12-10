@@ -1,12 +1,12 @@
-module Data.Hounds.Test where
+module Data.Merkle.Test where
 
 import Control.Exception (Exception, throw, throwIO)
 import Data.ByteString qualified as B
 import Data.ByteString.Char8 qualified as C
-import Data.Hounds.Context qualified as Context
-import Data.Hounds.Db qualified as Db
-import Data.Hounds.PointerBlock qualified as PointerBlock
-import Data.Hounds.Trie qualified as Trie
+import Data.Merkle.Context qualified as Context
+import Data.Merkle.Db qualified as Db
+import Data.Merkle.PointerBlock qualified as PointerBlock
+import Data.Merkle.Trie qualified as Trie
 import Data.Serialize
 import Data.Word (Word8)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
@@ -14,7 +14,7 @@ import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 initTempDb :: IO Db.Db
 initTempDb = do
   dir <- getCanonicalTemporaryDirectory
-  path <- createTempDirectory dir "hounds-"
+  path <- createTempDirectory dir "merkle-"
   Db.mkDb path (1024 * 1024 * 128)
 
 initTempEnv :: (Serialize k, Serialize v) => IO (Context.Context k v)

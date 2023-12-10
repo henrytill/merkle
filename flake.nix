@@ -11,24 +11,24 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, ... }:
-    let makeHounds = system: { compiler ? "ghc928" }:
+    let makeMerkle = system: { compiler ? "ghc928" }:
       let pkgs = nixpkgs.legacyPackages.${system};
           systemDepends = [ pkgs.lmdb ];
           call = compiler: pkgs.haskell.packages.${compiler}.callCabal2nixWithOptions;
           flags = "";
-          src = builtins.path { path = ./.; name = "hounds-src"; };
-          hounds_ = call compiler "hounds" src flags {};
+          src = builtins.path { path = ./.; name = "merkle-src"; };
+          merkle_ = call compiler "merkle" src flags {};
       in
-        pkgs.haskell.lib.overrideCabal hounds_ (oldAttrs: {
+        pkgs.haskell.lib.overrideCabal merkle_ (oldAttrs: {
           executableSystemDepends = systemDepends;
           librarySystemDepends = systemDepends;
           testSystemDepends = systemDepends;
         });
     in
       flake-utils.lib.eachDefaultSystem (system:
-        let hounds = makeHounds system;
+        let merkle = makeMerkle system;
         in {
-          packages.hounds = hounds {};
-          packages.default = self.packages.${system}.hounds;
+          packages.merkle = merkle {};
+          packages.default = self.packages.${system}.merkle;
         });
 }

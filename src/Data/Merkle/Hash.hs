@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 
-module Data.Hounds.Hash
+module Data.Merkle.Hash
   ( Hash (..),
     mkHash,
   )

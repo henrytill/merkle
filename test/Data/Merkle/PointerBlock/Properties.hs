@@ -1,9 +1,9 @@
-module Data.Hounds.PointerBlock.Properties (pointerBlockProperties) where
+module Data.Merkle.PointerBlock.Properties (pointerBlockProperties) where
 
-import Data.Hounds.Hash
-import Data.Hounds.Orphans ()
-import Data.Hounds.PointerBlock
 import Data.Map.Strict (Map, toList)
+import Data.Merkle.Hash
+import Data.Merkle.Orphans ()
+import Data.Merkle.PointerBlock
 import Data.Serialize
 import Data.Word (Word8)
 import Test.QuickCheck (Arbitrary)

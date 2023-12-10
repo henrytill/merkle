@@ -1,17 +1,17 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 
-module Data.Hounds.Trie where
+module Data.Merkle.Trie where
 
 import Control.Concurrent.MVar (MVar, putMVar, readMVar, takeMVar)
 import Control.Exception (Exception, bracket, bracketOnError, throw, throwIO)
 import Control.Monad (foldM)
 import Data.ByteString qualified as B
 import Data.ByteString.Char8 qualified as C
-import Data.Hounds.Context qualified as Context
-import Data.Hounds.Db qualified as Db
-import Data.Hounds.Hash
-import Data.Hounds.PointerBlock
+import Data.Merkle.Context qualified as Context
+import Data.Merkle.Db qualified as Db
+import Data.Merkle.Hash
+import Data.Merkle.PointerBlock
 import Data.Serialize
 import Data.Word (Word8)
 import Database.LMDB.Raw

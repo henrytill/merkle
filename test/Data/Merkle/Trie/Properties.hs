@@ -1,16 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Data.Hounds.Trie.Properties (trieProperties) where
+module Data.Merkle.Trie.Properties (trieProperties) where
 
 import Control.Concurrent (runInBoundThread)
 import Control.Exception (finally)
 import Data.ByteString qualified as B
-import Data.Hounds.Context qualified as Context
-import Data.Hounds.Hash qualified as Hash
-import Data.Hounds.Orphans ()
-import Data.Hounds.Test
-import Data.Hounds.Trie qualified as Trie
 import Data.Map qualified as Map
+import Data.Merkle.Context qualified as Context
+import Data.Merkle.Hash qualified as Hash
+import Data.Merkle.Orphans ()
+import Data.Merkle.Test
+import Data.Merkle.Trie qualified as Trie
 import Data.Serialize
 import Test.QuickCheck (Arbitrary, Property)
 import Test.QuickCheck.Instances.ByteString ()

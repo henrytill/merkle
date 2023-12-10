@@ -1,7 +1,7 @@
-module Data.Hounds.Hash.Properties (hashProperties) where
+module Data.Merkle.Hash.Properties (hashProperties) where
 
-import Data.Hounds.Hash
-import Data.Hounds.Orphans ()
+import Data.Merkle.Hash
+import Data.Merkle.Orphans ()
 import Test.QuickCheck (Arbitrary)
 import Test.Tasty
 import Test.Tasty.QuickCheck (testProperty)

@@ -1,12 +1,12 @@
 module Main (main) where
 
-import Data.Hounds.Db.Properties (dbProperties)
-import Data.Hounds.Hash.Properties (hashProperties)
-import Data.Hounds.Hash.Tests (hashTests)
-import Data.Hounds.PointerBlock.Properties (pointerBlockProperties)
-import Data.Hounds.PointerBlock.Tests (pointerBlockTests)
-import Data.Hounds.Trie.Properties (trieProperties)
-import Data.Hounds.Trie.Tests (trieTests)
+import Data.Merkle.Db.Properties (dbProperties)
+import Data.Merkle.Hash.Properties (hashProperties)
+import Data.Merkle.Hash.Tests (hashTests)
+import Data.Merkle.PointerBlock.Properties (pointerBlockProperties)
+import Data.Merkle.PointerBlock.Tests (pointerBlockTests)
+import Data.Merkle.Trie.Properties (trieProperties)
+import Data.Merkle.Trie.Tests (trieTests)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
 props :: [TestTree]

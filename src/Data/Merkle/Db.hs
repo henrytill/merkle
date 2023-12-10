@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Data.Hounds.Db
+module Data.Merkle.Db
   ( DbException (..),
     Db (..),
     mkDb,

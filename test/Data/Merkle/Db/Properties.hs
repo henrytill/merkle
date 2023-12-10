@@ -1,12 +1,12 @@
-module Data.Hounds.Db.Properties (dbProperties) where
+module Data.Merkle.Db.Properties (dbProperties) where
 
 import Control.Concurrent (runInBoundThread)
 import Control.Exception (onException)
 import Data.ByteString qualified as B
-import Data.Hounds.Db qualified as Db
-import Data.Hounds.Hash qualified as Hash
-import Data.Hounds.Orphans ()
-import Data.Hounds.Test
+import Data.Merkle.Db qualified as Db
+import Data.Merkle.Hash qualified as Hash
+import Data.Merkle.Orphans ()
+import Data.Merkle.Test
 import Database.LMDB.Raw
 import Test.QuickCheck (Property)
 import Test.QuickCheck.Monadic qualified as M

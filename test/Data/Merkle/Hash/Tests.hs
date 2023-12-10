@@ -1,7 +1,7 @@
-module Data.Hounds.Hash.Tests (hashTests) where
+module Data.Merkle.Hash.Tests (hashTests) where
 
 import Data.ByteString.Char8 qualified as C
-import Data.Hounds.Hash qualified as Hash
+import Data.Merkle.Hash qualified as Hash
 import Test.Tasty
 import Test.Tasty.HUnit
 

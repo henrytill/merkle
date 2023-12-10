@@ -1,4 +1,4 @@
-module Data.Hounds.PointerBlock
+module Data.Merkle.PointerBlock
   ( bounds,
     PointerBlock (..),
     mkPointerBlock,
@@ -12,9 +12,9 @@ where
 import Data.Array (Array)
 import Data.Array.IArray ((!), (//))
 import Data.Array.IArray qualified as IArray
-import Data.Hounds.Hash
 import Data.Ix (Ix)
 import Data.Ix qualified as Ix
+import Data.Merkle.Hash
 import Data.Serialize
 import Data.Word (Word8)
 

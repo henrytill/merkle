@@ -1,8 +1,8 @@
-module Data.Hounds.Context where
+module Data.Merkle.Context where
 
 import Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar)
-import Data.Hounds.Db qualified as Db
-import Data.Hounds.Hash qualified as Hash
+import Data.Merkle.Db qualified as Db
+import Data.Merkle.Hash qualified as Hash
 
 data Context k v = MkContext
   { contextDb :: Db.Db,

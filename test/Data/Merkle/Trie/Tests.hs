@@ -1,13 +1,13 @@
-module Data.Hounds.Trie.Tests (trieTests) where
+module Data.Merkle.Trie.Tests (trieTests) where
 
 import Control.Concurrent (runInBoundThread)
 import Data.ByteString.Char8 qualified as C
-import Data.Hounds.Context qualified as Context
-import Data.Hounds.Db qualified as Db
-import Data.Hounds.Hash qualified as Hash
-import Data.Hounds.PointerBlock qualified as PointerBlock
-import Data.Hounds.Test
-import Data.Hounds.Trie qualified as Trie
+import Data.Merkle.Context qualified as Context
+import Data.Merkle.Db qualified as Db
+import Data.Merkle.Hash qualified as Hash
+import Data.Merkle.PointerBlock qualified as PointerBlock
+import Data.Merkle.Test
+import Data.Merkle.Trie qualified as Trie
 import Test.Tasty
 import Test.Tasty.HUnit
 

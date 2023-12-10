@@ -1,9 +1,9 @@
-module Data.Hounds.PointerBlock.Tests where
+module Data.Merkle.PointerBlock.Tests where
 
 import Data.ByteString qualified as B
 import Data.ByteString.Char8 qualified as C
-import Data.Hounds.Hash qualified as Hash
-import Data.Hounds.PointerBlock qualified as PointerBlock
+import Data.Merkle.Hash qualified as Hash
+import Data.Merkle.PointerBlock qualified as PointerBlock
 import Data.Serialize
 import Test.Tasty
 import Test.Tasty.HUnit

@@ -8,13 +8,25 @@ on:
   workflow_dispatch:
 
 jobs:
-  nix:
+  linux:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
-      - run: nix build
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.8'
+          cabal-version: '3.10'
+      - name: Cache
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-cabal
+        with:
+          path: ~/.cabal
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: cabal v2-configure --enable-tests
+      - run: cabal v2-build all
+      - run: cabal v2-test

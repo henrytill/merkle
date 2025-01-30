@@ -27,6 +27,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
+      - run: sudo apt-get install -yqq --no-install-recommends liblmdb-dev
       - run: cabal v2-configure --enable-tests
       - run: cabal v2-build all
       - run: cabal v2-test

@@ -1,15 +1,15 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Data.Merkle.Db
-  ( DbException (..),
-    Db (..),
-    mkDb,
-    close,
-    put,
-    get,
-    del,
-    putOrThrow,
-    getOrThrow,
+  ( DbException (..)
+  , Db (..)
+  , mkDb
+  , close
+  , put
+  , get
+  , del
+  , putOrThrow
+  , getOrThrow
   )
 where
 
@@ -33,8 +33,8 @@ data DbException
 instance Exception DbException
 
 data Db = MkDb
-  { dbEnv :: MDB_env,
-    dbDbi :: MDB_dbi
+  { dbEnv :: MDB_env
+  , dbDbi :: MDB_dbi
   }
 
 mkDb :: FilePath -> Int -> IO Db

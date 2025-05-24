@@ -26,6 +26,6 @@ pointerBlockProperties =
     "PointerBlock property tests"
     [ testProperty
         "Round trip PointerBlock serialization"
-        (prop_roundTripSerialization :: PointerBlock -> Bool),
-      testProperty "getChildren" prop_getChildren
+        (prop_roundTripSerialization :: PointerBlock -> Bool)
+    , testProperty "getChildren" prop_getChildren
     ]

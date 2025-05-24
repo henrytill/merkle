@@ -60,10 +60,10 @@ pointerBlockTests :: TestTree
 pointerBlockTests =
   testGroup
     "PointerBlock unit tests"
-    [ testCase "Empty PointerBlock has the expected hash" emptyHashTest,
-      testCase "A serialized empty PointerBlock has the expected length" emptyLengthTest,
-      testCase "A serialized full PointerBlock has the expected length" fullLengthTest,
-      testCase "A PointerBlock with a known item at index 1 has the expected hash" index1Test,
-      testCase "A PointerBlock with a known item at index 42 has the expected hash" index42Test,
-      testCase "A full PointerBlock has the expected hash" fullHashTest
+    [ testCase "Empty PointerBlock has the expected hash" emptyHashTest
+    , testCase "A serialized empty PointerBlock has the expected length" emptyLengthTest
+    , testCase "A serialized full PointerBlock has the expected length" fullLengthTest
+    , testCase "A PointerBlock with a known item at index 1 has the expected hash" index1Test
+    , testCase "A PointerBlock with a known item at index 42 has the expected hash" index42Test
+    , testCase "A full PointerBlock has the expected hash" fullHashTest
     ]

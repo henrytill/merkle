@@ -1,11 +1,11 @@
 module Data.Merkle.PointerBlock
-  ( bounds,
-    PointerBlock (..),
-    mkPointerBlock,
-    fillPointerBlock,
-    index,
-    update,
-    getChildren,
+  ( bounds
+  , PointerBlock (..)
+  , mkPointerBlock
+  , fillPointerBlock
+  , index
+  , update
+  , getChildren
   )
 where
 

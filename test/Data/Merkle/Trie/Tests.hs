@@ -273,49 +273,49 @@ trieTests :: TestTree
 trieTests =
   testGroup
     "Trie unit tests"
-    [ testCase "empty root hash" emptyRootHashTest,
-      testCase "single leaf hash" oneLeafHashTest,
-      withResource
+    [ testCase "empty root hash" emptyRootHashTest
+    , testCase "single leaf hash" oneLeafHashTest
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "insert" . insertLookupTest),
-      withResource
+        (testCase "insert" . insertLookupTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "two inserts" . twoInsertsTwoLookupsTest),
-      withResource
+        (testCase "two inserts" . twoInsertsTwoLookupsTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "three inserts" . threeInsertsThreeLookupsTest),
-      withResource
+        (testCase "three inserts" . threeInsertsThreeLookupsTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "four inserts" . fourInsertsFourLookupsTest),
-      withResource
+        (testCase "four inserts" . fourInsertsFourLookupsTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "five inserts" . fiveInsertsFiveLookupsTest),
-      withResource
+        (testCase "five inserts" . fiveInsertsFiveLookupsTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "insert, delete" . insertLookupDeleteLookupTest),
-      withResource
+        (testCase "insert, delete" . insertLookupDeleteLookupTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "insert, insert, delete, delete" . insertInsertDeleteDeleteTest),
-      withResource
+        (testCase "insert, insert, delete, delete" . insertInsertDeleteDeleteTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "duplicate inserts" . duplicateInsertsLookupTest),
-      withResource
+        (testCase "duplicate inserts" . duplicateInsertsLookupTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "insert, delete, delete again" . insertLookupDeleteLookupDeleteAgainLookupTest),
-      withResource
+        (testCase "insert, delete, delete again" . insertLookupDeleteLookupDeleteAgainLookupTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
-        (testCase "rollback repeat test" . rollbackRepeatTest),
-      withResource
+        (testCase "rollback repeat test" . rollbackRepeatTest)
+    , withResource
         (runInBoundThread initTempEnv)
         (runInBoundThread . Db.close . Context.contextDb)
         (testCase "rollback fork test" . rollbackForkTest)

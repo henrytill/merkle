@@ -61,15 +61,15 @@ roundTrip pairs = runInBoundThread $ do
 
 prop_roundTrip ::
   forall k v.
-  ( Arbitrary k,
-    Arbitrary v,
-    Eq k,
-    Eq v,
-    Serialize k,
-    Serialize v,
-    Show k,
-    Show v,
-    Ord k
+  ( Arbitrary k
+  , Arbitrary v
+  , Eq k
+  , Eq v
+  , Serialize k
+  , Serialize v
+  , Show k
+  , Show v
+  , Ord k
   ) =>
   Map.Map k v ->
   Property
@@ -116,15 +116,15 @@ roundTripRollback first second = runInBoundThread $ do
 
 prop_roundTripRollback ::
   forall k v.
-  ( Arbitrary k,
-    Arbitrary v,
-    Eq k,
-    Eq v,
-    Serialize k,
-    Serialize v,
-    Show k,
-    Show v,
-    Ord k
+  ( Arbitrary k
+  , Arbitrary v
+  , Eq k
+  , Eq v
+  , Serialize k
+  , Serialize v
+  , Show k
+  , Show v
+  , Ord k
   ) =>
   Map.Map k v ->
   Property
@@ -140,11 +140,11 @@ trieProperties =
     "Trie property tests"
     [ testProperty
         "Round trip Trie serialization"
-        (prop_roundTripSerialization :: Trie.Trie TestKey B.ByteString -> Bool),
-      testProperty
+        (prop_roundTripSerialization :: Trie.Trie TestKey B.ByteString -> Bool)
+    , testProperty
         "Round trip"
-        (prop_roundTrip :: Map.Map TestKey B.ByteString -> Property),
-      testProperty
+        (prop_roundTrip :: Map.Map TestKey B.ByteString -> Property)
+    , testProperty
         "Round trip rollback"
         (prop_roundTripRollback :: Map.Map TestKey B.ByteString -> Property)
     ]

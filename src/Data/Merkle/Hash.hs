@@ -1,8 +1,8 @@
 {-# LANGUAGE TupleSections #-}
 
 module Data.Merkle.Hash
-  ( Hash (..),
-    mkHash,
+  ( Hash (..)
+  , mkHash
   )
 where
 

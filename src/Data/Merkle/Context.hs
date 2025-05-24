@@ -5,8 +5,8 @@ import Data.Merkle.Db qualified as Db
 import Data.Merkle.Hash qualified as Hash
 
 data Context k v = MkContext
-  { contextDb :: Db.Db,
-    contextWorkingRoot :: MVar Hash.Hash
+  { contextDb :: Db.Db
+  , contextWorkingRoot :: MVar Hash.Hash
   }
 
 mkContext :: Db.Db -> Hash.Hash -> IO (Context k v)
